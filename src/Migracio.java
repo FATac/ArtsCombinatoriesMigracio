@@ -220,6 +220,7 @@ public class Migracio {
 	private static int error_count = 0;
 	
 	private static List<String> find(String f, String v, String c) throws Exception {
+		if (v.contains("\n")) v = v.split("\n")[0];
 		String dir = "http://"+hostport+"/ArtsCombinatoriesRest/specific?f="+f+"&v="+URLEncoder.encode(v, "UTF-8")+"&c="+c;
 		URL url = new URL(dir);
 		HttpURLConnection conn = (HttpURLConnection)url.openConnection();
@@ -507,11 +508,55 @@ public class Migracio {
 		}
 	}
 	
-	 
+	static Map<String, String> addedCountries = new HashMap<String, String>();
 	static Map<String, String> addedCities = new HashMap<String, String>();
 	
-	/* TODO: CAL una taula completa de ciutats.csv perquè aquesta funció sigui fiable */
+	public static String[] searchCityCountry(String cityName, String lang) {
+		String countryName = null;
+		
+		try {
+		    // Send data
+		    URL url = new URL("http://api.geonames.org/searchJSON?formatted=true&q="+URLEncoder.encode(cityName, "UTF-8")+"&maxRows=10&lang="+lang+"&username=johnsmith&style=full");
+		    HttpURLConnection conn = (HttpURLConnection)url.openConnection();
+		    conn.setRequestProperty("Content-Type", "application/json");
+		    conn.setRequestMethod("GET");
+
+		    // Get the response
+		    BufferedReader rd = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+		    String str;
+		    StringBuffer sb = new StringBuffer();
+		    while ((str = rd.readLine()) != null) {
+		    	sb.append(str);
+		    	sb.append("\n");
+		    }
+
+		    rd.close();
+		    
+		    int idx1 = sb.indexOf("\"countryName\": \"") + 16;
+		    if (idx1>15) {
+		    	int idx2 = sb.indexOf("\"", idx1);
+		    	countryName = sb.substring(idx1, idx2);
+		    }
+		    
+		    idx1 = sb.indexOf("\"lang\": \""+lang+"\"") - 13;
+		    if (idx1>-1) {
+		    	int idx2 = sb.indexOf("\"name\": \"",idx1-45) + 9;
+		    	cityName = sb.substring(idx2, idx1);
+		    }
+		} catch (Exception e) {
+			e.printStackTrace();
+			return null;
+		}
+		
+		return new String[]{countryName, cityName};
+	}
+	
+	/* TODO: CAL una taula completa de ciutats.csv i amb els noms alinieats per idoma perquè aquesta funció sigui fiable */
 	public static List<String> seekAndGenerateLocations(String desc) throws Exception {
+		String[] lang = {"ca", "es", "en"};
+		
+		String tmp = null;
+		
 		desc = desc.toLowerCase();
 		CsvReader r = new CsvReader(new FileReader(new File("./masters/ciutats.csv")));
 		r.readHeaders();
@@ -525,18 +570,46 @@ public class Migracio {
 			String nombre = r.get("Castellà").toLowerCase().trim();
 			String name = r.get("Anglès").toLowerCase().trim();
 			
-			if ((!"".equals(nom) && desc.contains(nom)) 
-					|| (!"".equals(nombre) && desc.contains(nombre)) 
-					|| (!"".equals(name) && desc.contains(name))) { 
-				
-				uri = addedCities.get(r.get("Català").trim());
+			String foundName = null;
+			if (!"".equals(nom) && desc.contains(nom)) {
+				foundName = nom.trim();
+			} else if (!"".equals(nombre) && desc.contains(nombre)) {
+				foundName = nombre.trim();
+			} else if (!"".equals(name) && desc.contains(name)) {
+				foundName = name.trim();
+			}
+			
+			if (foundName!=null) {
+				uri = addedCities.get(foundName);
 				
 				if (uri==null) {
+					CustomMap country = new CustomMap();
+					country.put("className", "Country");
 					CustomMap city = new CustomMap();
 					city.put("className", "City");
-					city.put("firstName", r.get("Català").trim()+"@ca");
-					city.put("firstName", r.get("Castellà").trim()+"@es");
-					city.put("firstName", r.get("Anglès").trim()+"@en");
+					
+					String countryUri = null;
+					
+					for (String l : lang) {
+						String[] names = new String[2];
+						names = searchCityCountry(foundName, l);
+						
+						if (names!=null) {
+							city.put("firstName", names[1]+"@"+l);
+							tmp = names[0];
+							country.put("firstName", names[0]+"@"+l);
+						} else {
+							city.put("firstName", foundName+"@"+l);
+						}
+					}
+					
+					countryUri = addedCountries.get(tmp);
+					if (countryUri == null) {
+						countryUri = uploadObject(country);
+						addedCountries.put(tmp, countryUri);
+					}
+					
+					city.put("IsLocatedIn", countryUri);
 					uri = uploadObject(city);
 					addedCities.put(r.get("Català").trim(), uri);
 				}
@@ -742,7 +815,7 @@ public class Migracio {
 						while (it.hasNext()) {
 							Map.Entry<String, CustomMap> entry = it.next();
 							String uri = uploadObject(entry.getValue());
-							event.put("hasSpecificEvent", uri);
+							event.put("hasSpecificActivity", uri);
 						}
 						System.out.println("Uploaded.");
 						
@@ -1169,6 +1242,9 @@ public class Migracio {
 			if (roleName.equals("Director of the project")) roleName = "Director";
 			if (roleName.equals("Poet and Novelist")) roleName = "Poet";
 			if (roleName.equals("Director of the project in Barcelona")) roleName = "Director";
+			if (roleName.contains("Curator")) roleName = "Curator";
+			if (roleName.contains("Cataloguer")) roleName = "Cataloguer";
+			if (roleName.contains("Collection")) roleName = "Cataloguer";
 			
 			CustomMap role = new CustomMap();
 			role.put("className", roleName);
@@ -1414,7 +1490,6 @@ public class Migracio {
 							}
 						}
 					}
-					
 				} 
 				
 				if (r.get("Realització")!=null && !"".equals(r.get("Realització"))) {
@@ -1748,8 +1823,6 @@ public class Migracio {
 				CustomMap work = new CustomMap();
 				work.put("className", "AT_Work_FAT_Collection");
 				List<String> editorList = new ArrayList<String>();
-				
-				//List<CustomMap> lendings = new ArrayList<CustomMap>();
 				
 				if (r.get("Núm. fotog.")!=null && !"".equals(r.get("Núm. fotog."))) {
 					work.put("NumberT", r.get("Núm. fotog."));
@@ -2121,15 +2194,15 @@ public class Migracio {
 		System.out.println("Starting migration at " + sdf.format(new GregorianCalendar().getTime()));
 		
 		// ----- Migració de SPIP
-		//migrarPersons(); 							// DONE.
+		//migrarPersons(); 						// DONE.
 		//migrarEvents();							// DONE.
-		//migrarPublications();						// DONE.
+		//migrarPublications();					// DONE.
 		//migrarRelations();						// DONE.
 		
 		// ----- Migració de File-Maker
 		//migrarFileMaker1();
 		//migrarFileMaker2(); 
-		migrarFileMaker3();
+		//migrarFileMaker3();
 		
 		// ----- Migració de Media
 		//migrarCollections(); 						// DONE.
@@ -2139,7 +2212,7 @@ public class Migracio {
 		//System.out.println(participantsNotFound);
 		
 		System.out.println("FINISHED migration at " + sdf.format(new GregorianCalendar().getTime()));
-		// -- utils
+		// -- utils no migracio
 		//collectAgents();
 		//collectCities();
 		
