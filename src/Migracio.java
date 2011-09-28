@@ -207,7 +207,7 @@ class CustomList extends ArrayList<Map<String, String>> {
 public class Migracio {
 	
 	/* Objectes recurrents */
-	static CustomMap backupAgents = new CustomMap();
+	static Map<String, String> backupAgents = new HashMap<String, String>();
 	
 	static boolean MIGRAR = false;
 	static boolean DOWNLOAD_DATA = false;
@@ -475,10 +475,10 @@ public class Migracio {
 						    	
 						    	if (currentUri.contains("participants")) {
 						    		if (content.equals("http://xmlns.com/foaf/0.1/givenName")) {
-										data.put("givenName", object1.toString());
+										data.put("givenName", object1.toString().trim());
 										//System.out.println("name " + object1.toString());
 									} else if (content.equals("http://xmlns.com/foaf/0.1/familyName")) {
-										data.put("lastName", object1.toString());
+										data.put("lastName", object1.toString().trim());
 										//System.out.println("surname " + object1.toString());
 									} else if (content.equals("http://purl.org/vocab/bio/0.1/biography")) {
 										String bio = object1.toString().replaceAll(" class=\"spip\"", "").replaceAll(" class=\"spip_out\"","");	
@@ -493,9 +493,11 @@ public class Migracio {
 						}
 						
 						System.out.println("Uploading person...");
-						uploadObject(data);
+						String agentUri = uploadObject(data);
+						String fullName = ((data.get("givenName")!=null?data.get("givenName")+" ":"") + (data.get("lastName")!=null?data.get("lastName"):"")).trim();
+						backupAgents.put(fullName, agentUri);
+
 						System.out.println("Uploaded. ");
-						
 			    	} catch (Exception e) {
 			    		System.out.println("ERROR with person " + object.toString());
 			    		e.printStackTrace();
@@ -506,6 +508,7 @@ public class Migracio {
 			System.out.println("Error migrating persons " + e);
 			e.printStackTrace();
 		}
+
 	}
 	
 	static Map<String, String> addedCountries = new HashMap<String, String>();
@@ -555,9 +558,13 @@ public class Migracio {
 	public static List<String> seekAndGenerateLocations(String desc) throws Exception {
 		String[] lang = {"ca", "es", "en"};
 		
+		desc = desc.replace('<', ' ').replace('>', ' ').replace(',', ' ')
+					 .replace('.', ' ').replace('(', ' ').replace(')', ' ')
+					 .replace('[', ' ').replace(']', ' ').replace('!', ' ');
+		desc = " " + desc + " ";
+		
 		String tmp = null;
 		
-		desc = desc.toLowerCase();
 		CsvReader r = new CsvReader(new FileReader(new File("./masters/ciutats.csv")));
 		r.readHeaders();
 		
@@ -566,20 +573,21 @@ public class Migracio {
 		while (r.readRecord()) {
 			String uri = null;
 			
-			String nom = r.get("Català").toLowerCase().trim();
-			String nombre = r.get("Castellà").toLowerCase().trim();
-			String name = r.get("Anglès").toLowerCase().trim();
+			String nom = r.get("Català").trim();
+			String nombre = r.get("Castellà").trim();
+			String name = r.get("Anglès").trim();
 			
 			String foundName = null;
-			if (!"".equals(nom) && desc.contains(nom)) {
+			if (desc.contains(" "+nom+" ")) {
 				foundName = nom.trim();
-			} else if (!"".equals(nombre) && desc.contains(nombre)) {
+			} else if (desc.contains(" "+nombre+" ")) {
 				foundName = nombre.trim();
-			} else if (!"".equals(name) && desc.contains(name)) {
+			} else if (desc.contains(" "+name+" ")) {
 				foundName = name.trim();
 			}
 			
-			if (foundName!=null) {
+			if (foundName!=null && !"".equals(foundName.trim())) {
+				desc = desc.replaceAll(foundName, "");
 				uri = addedCities.get(foundName);
 				
 				if (uri==null) {
@@ -589,6 +597,7 @@ public class Migracio {
 					city.put("className", "City");
 					
 					String countryUri = null;
+					List<String> cn = new ArrayList<String>();
 					
 					for (String l : lang) {
 						String[] names = new String[2];
@@ -596,6 +605,7 @@ public class Migracio {
 						
 						if (names!=null) {
 							city.put("firstName", names[1]+"@"+l);
+							cn.add(names[1]);
 							tmp = names[0];
 							country.put("firstName", names[0]+"@"+l);
 						} else {
@@ -611,7 +621,7 @@ public class Migracio {
 					
 					city.put("IsLocatedIn", countryUri);
 					uri = uploadObject(city);
-					addedCities.put(r.get("Català").trim(), uri);
+					for (String n : cn) addedCities.put(n, uri);
 				}
 				
 				if (uri!=null) res.add(uri);	
@@ -695,6 +705,7 @@ public class Migracio {
 						Map<String, CustomMap> documents = new HashMap<String, CustomMap>();
 						Map<String, CustomMap> specificEvents = new HashMap<String, CustomMap>();
 						CustomMap currDoc = new CustomMap();
+						List<String> touringsAdded = new ArrayList<String>();
 						
 						String lastDocument = null;
 						String idExpedient = null;
@@ -715,7 +726,7 @@ public class Migracio {
 							    if (subjectURI.contains("events")) {
 							    	if (property.equals("http://purl.org/dc/elements/1.1/title")) {
 										event.put("Title", object1.toString());
-										caseFile.put("Description", object1.toString());
+										//caseFile.put("Description", object1.toString());
 										//System.out.println("title" + object1.toString());
 									} else if (property.equals("http://purl.org/dc/elements/1.1/date")) {
 										event.put("StartDate", object1.toString());
@@ -730,14 +741,18 @@ public class Migracio {
 							    	if (!currentDoc.equals(lastDocument)) {
 							    		if (lastDocument!=null) {
 							    			if (((String)currDoc.get("doctype")).startsWith("Touring")) {
-							    				if (currDoc.get("Description")!=null) {
-								    				Object d = currDoc.get("Description");
-								    				List<String> ll = new ArrayList<String>();
-								    				if (d instanceof String) {
-								    					ll = seekAndGenerateLocations((String)d);
-								    				} else ll = seekAndGenerateLocations(((String[])d)[0]);
-								    				if (ll.size()>0)
-								    					for (String l : ll) event.put("tookPlaceAt", l);
+							    				if (!touringsAdded.contains(lastDocument)) { 
+								    				if (currDoc.get("Description")!=null) {
+									    				Object d = currDoc.get("Description");
+									    				List<String> ll = new ArrayList<String>();
+									    				if (d instanceof String) {
+									    					ll = seekAndGenerateLocations((String)d);
+									    				} else ll = seekAndGenerateLocations(((String[])d)[0]);
+									    				if (ll.size()>0)
+									    					for (String l : ll) event.put("tookPlaceAt", l);
+								    				}
+								    				
+								    				touringsAdded.add(lastDocument);
 							    				}
 							    			} else if (((String)currDoc.get("doctype")).startsWith("Introduction") || ((String)currDoc.get("doctype")).startsWith("Activity")) {
 							    				event.put("Description", currDoc.get("Description"));
@@ -754,6 +769,7 @@ public class Migracio {
 							    			}
 							    		}
 							    		currDoc = documents.get(currentDoc);
+							    		currDoc = specificEvents.get(currentDoc);
 							    		if (currDoc == null) currDoc = new CustomMap();
 							    		
 							    		lastDocument = currentDoc;
@@ -1364,7 +1380,7 @@ public class Migracio {
 		while(r.readRecord()) {
 			String n = r.get(0);
 			int idx = text.indexOf(n.toLowerCase());
-			if (idx>0) pt.add((100000+idx+"").substring(1)+"____"+r.get(0)+"___"+r.get(1));
+			if (idx>-1) pt.add((100000+idx+"").substring(1)+"____"+r.get(0)+"___"+r.get(1));
 		}
 		
 		if (pt.size()==0)
@@ -1458,30 +1474,34 @@ public class Migracio {
 							String p = panoramix.substring(0, idx);
 							String t = panoramix.substring(idx+3);
 							
-							List<String> l = null;
-							if ("p".equals(t)) {
-								l = find("givenName", p, "Person");
-								if (l.size()==0) l = find("givenName", p.split(" ")[0], "Person");
-							} else {
-								l = find("firstName", p, "Organisation");
-							}
-							
 							String uri = null;
-							if (l.size()==0) {
-								CustomMap agent = new CustomMap();
+							uri = backupAgents.get(p);
+							if (uri==null) {
+								List<String> l = new ArrayList<String>();
 								if ("p".equals(t)) {
-									String[] fname = p.split(" ");
-									agent.put("className", "Person");
-									agent.put("givenName", fname[0]);
-									if (fname.length>1)	agent.put("lastName", p.replace(fname[0]+" ", ""));
+									l = find("givenName", p, "Person");
+									if (l.size()==0) l = find("givenName", p.split(" ")[0], "Person");
 								} else {
-									agent.put("className", "Organisation");
-									agent.put("firstName", p);
-								}	 
+									l = find("firstName", p, "Organisation");
+								}
 								
-								uri = uploadObject(agent);
-							} else {
-								uri = l.get(0); 
+								if (l.size()==0) {
+									CustomMap agent = new CustomMap();
+									if ("p".equals(t)) {
+										String[] fname = p.split(" ");
+										agent.put("className", "Person");
+										agent.put("givenName", fname[0]);
+										if (fname.length>1)	agent.put("lastName", p.replace(fname[0]+" ", ""));
+									} else {
+										agent.put("className", "Organisation");
+										agent.put("firstName", p);
+									}	 
+									
+									uri = uploadObject(agent);
+									backupAgents.put(p, uri);
+								} else {
+									uri = l.get(0); 
+								}
 							}
 							
 							if (eventUri != null && !prodExpoPair.contains(uri+eventUri)) {
@@ -1494,7 +1514,7 @@ public class Migracio {
 				
 				if (r.get("Realització")!=null && !"".equals(r.get("Realització"))) {
 					String currRealitzador = r.get("Realització").trim();
-					String[] pl = searchAgent(currRealitzador);
+					String[] pl = searchAgent(currRealitzador); 
 					
 					if (pl!=null) {
 						for(String panoramix : pl) {
@@ -1502,30 +1522,35 @@ public class Migracio {
 							String p = panoramix.substring(0, idx);
 							String t = panoramix.substring(idx+3);
 							
-							List<String> l = null;
-							if ("p".equals(t)) {
-								l = find("givenName", p, "Person");
-								if (l.size()==0) l = find("givenName", p.split(" ")[0], "Person");
-							} else {
-								l = find("firstName", p, "Organisation");
-							}
-							
 							String uri = null;
-							if (l.size()==0) {
-								CustomMap agent = new CustomMap();
+							uri = backupAgents.get(p);
+							
+							if (uri==null) {
+								List<String> l = new ArrayList<String>();
 								if ("p".equals(t)) {
-									String[] fname = p.split(" ");
-									agent.put("className", "Person");
-									agent.put("givenName", fname[0]);
-									if (fname.length>1)	agent.put("lastName", p.replace(fname[0]+" ", ""));
+									l = find("givenName", p, "Person");
+									if (l.size()==0) l = find("givenName", p.split(" ")[0], "Person");
 								} else {
-									agent.put("className", "Organisation");
-									agent.put("firstName", p);
-								}	 
-								
-								uri = uploadObject(agent);
-							} else {
-								uri = l.get(0); 
+									l = find("firstName", p, "Organisation");
+								}
+
+								if (l.size()==0) {
+									CustomMap agent = new CustomMap();
+									if ("p".equals(t)) {
+										String[] fname = p.split(" ");
+										agent.put("className", "Person");
+										agent.put("givenName", fname[0]);
+										if (fname.length>1)	agent.put("lastName", p.replace(fname[0]+" ", ""));
+									} else {
+										agent.put("className", "Organisation");
+										agent.put("firstName", p);
+									}	 
+									
+									uri = uploadObject(agent);
+									backupAgents.put(p, uri);
+								} else {
+									uri = l.get(0); 
+								}
 							}
 							
 							if (eventUri != null && !realExpoPair.contains(uri+eventUri)) {
@@ -1675,21 +1700,26 @@ public class Migracio {
 					
 					int i = 0;
 					for(String p : pl) {
+						p = p.trim();
 						String pt = "Person";
 						if (ptl.length==1 && "o".equals(ptl[0]) 
 							|| ptl.length>i && "o".equals(ptl[i].trim())) pt = "Organisation";
-						List<String> l = find("firstName", p, pt);
 						
 						String uri = null;
-						
-						if (l.size()==0) {
-							CustomMap agent = new CustomMap();
+						uri = backupAgents.get(p);
+						if (uri==null) {
+							List<String> l = find("Person".equals(pt)?"givenName":"firstName", p, pt);
 							
-							agent.put("className", pt);
-							agent.put("firstName", p);
-							uri = uploadObject(agent);
-						} else {
-							uri = l.get(0); 
+							if (l.size()==0) {
+								CustomMap agent = new CustomMap();
+								
+								agent.put("className", pt);
+								agent.put("Person".equals(pt)?"givenName":"firstName", p);
+								uri = uploadObject(agent);
+								backupAgents.put(p, uri);
+							} else {
+								uri = l.get(0); 
+							}
 						}
 						
 						if (eventUri != null && !autorExpoPair.contains(uri+eventUri)) {
@@ -1703,17 +1733,22 @@ public class Migracio {
 				
 				if (r.get("productor")!=null && !"".equals(r.get("productor"))) {
 					String p = r.get("productor").trim();
-					List<String> l = find("firstName", p, "Organisation");
-					String uri = null;
 					
-					if (l.size()==0) {
-						CustomMap agent = new CustomMap();
-						agent.put("className", "Organisation");
-						agent.put("firstName", p);
-						uri = uploadObject(agent);
-							
-					} else {
-						uri = l.get(0); 
+					String uri = null;
+					uri = backupAgents.get(p);
+					
+					if (uri==null) {
+						List<String> l = find("firstName", p, "Organisation");
+						
+						if (l.size()==0) {
+							CustomMap agent = new CustomMap();
+							agent.put("className", "Organisation");
+							agent.put("firstName", p);
+							uri = uploadObject(agent);
+							backupAgents.put(p, uri);
+						} else {
+							uri = l.get(0); 
+						}
 					}
 					
 					if (eventUri != null && !prodExpoPair.contains(uri+eventUri)) {
@@ -1847,8 +1882,11 @@ public class Migracio {
 					// TODO: pocs registres i poc automatitzable: MANUALMENT
 				}
 				if (r.get("Localització")!=null && !"".equals(r.get("Localització"))) {
-					work.put("CurrentSituation", r.get("Localització"));
-					// TODO: falta un camp intern a exportar a excel
+					String c = r.get("Localització");
+					if (r.get("updated loc.")!=null && !"".equals(r.get("updated loc."))) {
+						c = c + " " + r.get("updated loc.");
+					}
+					work.put("CurrentSituation", c);
 				}
 				if (r.get("Mides")!=null && !"".equals(r.get("Mides"))) {
 					work.put("measurement", r.get("Mides").trim());
@@ -1903,38 +1941,42 @@ public class Migracio {
 								int idx = panoramix.indexOf("___");
 								String p = panoramix.substring(0, idx);
 								
-								List<String> l = find("firstName", p, "Organisation");
+								String uri = backupAgents.get(p);
 								
-								String uri = null;
-								if (l.size()==0) {
-									CustomMap agent = new CustomMap();
-									agent.put("className", "Organisation");
-									agent.put("firstName", p);
-									uri = uploadObject(agent);
-								} else {
-									uri = l.get(0); 
-								}	
+								if (uri==null) {
+									List<String> l = find("firstName", p, "Organisation");
+									
+									if (l.size()==0) {
+										CustomMap agent = new CustomMap();
+										agent.put("className", "Organisation");
+										agent.put("firstName", p);
+										uri = uploadObject(agent);
+										backupAgents.put(p, uri);
+									} else {
+										uri = l.get(0); 
+									}	
+								}
 								
 								editorList.add(uri);
 							}
 						}
 					}
 					
-					// TODO: aclarir què fer amb aquests camps
-					if (r.get("Mides planxa")!=null && !"".equals(r.get("Mides planxa"))) {
+					if (r.get("Impressor")!=null && !"".equals(r.get("Impressor"))) {
+						work.put("className", "Publication");
 						
-					}
-					if (r.get("Marca paper")!=null && !"".equals(r.get("Marca paper"))) {
-						
-					}
-					if (r.get("Tiratge")!=null && !"".equals(r.get("Tiratge"))) {
-						
-					}
-					if (r.get("Núm. planxes")!=null && !"".equals(r.get("Núm. planxes"))) {
-						
-					}
-					if (r.get("Filigrana")!=null && !"".equals(r.get("Filigrana"))) {
-						
+						if (r.get("Mides planxa")!=null && !"".equals(r.get("Mides planxa"))) {
+							work.put("SheetSize", r.get("Mides planxa").trim());
+						}
+						if (r.get("Tiratge")!=null && !"".equals(r.get("Tiratge"))) {
+							work.put("Circulation", r.get("Tiratge").trim());
+						}
+						if (r.get("Núm. planxes")!=null && !"".equals(r.get("Núm. planxes"))) {
+							work.put("SheetNumber", r.get("Núm. planxes").trim());
+						}
+						if (r.get("Filigrana")!=null && !"".equals(r.get("Filigrana"))) {
+							work.put("Watermark", r.get("Filigrana").trim());
+						}
 					}
 				}
 				
@@ -1947,6 +1989,7 @@ public class Migracio {
 					
 					CustomMap editor = getObject(e);
 					editor.put("performsRole", roleUri);
+					updateObject(e, editor);
 				}
 			}
 			r.close();
@@ -2174,9 +2217,7 @@ public class Migracio {
 		while (r.readRecord()) {
 			if (r.get("Editor")!=null && !"".equals(r.get("Editor"))) {
 				int idx = r.get("Editor").indexOf(",");
-				if (idx>0) cities.add(r.get("Editor").substring(idx+1).trim());
-				
-				
+				if (idx>-1) cities.add(r.get("Editor").substring(idx+1).trim());
 			}
 		}
 		
@@ -2194,18 +2235,18 @@ public class Migracio {
 		System.out.println("Starting migration at " + sdf.format(new GregorianCalendar().getTime()));
 		
 		// ----- Migració de SPIP
-		//migrarPersons(); 						// DONE.
-		//migrarEvents();							// DONE.
-		//migrarPublications();					// DONE.
-		//migrarRelations();						// DONE.
+		migrarPersons(); 						
+		migrarEvents();							
+		migrarPublications();
+		migrarRelations();
 		
 		// ----- Migració de File-Maker
-		//migrarFileMaker1();
-		//migrarFileMaker2(); 
-		//migrarFileMaker3();
+		migrarFileMaker1();
+		migrarFileMaker2(); 
+		migrarFileMaker3();
 		
 		// ----- Migració de Media
-		//migrarCollections(); 						// DONE.
+		//migrarCollections(); 					// DONE.
 		//migrarMedia();
 		//migrarImages();
 		
@@ -2215,7 +2256,6 @@ public class Migracio {
 		// -- utils no migracio
 		//collectAgents();
 		//collectCities();
-		
 	}
 
 	// TODO: recordar que faltaven camps per exportar del file maker
