@@ -388,8 +388,6 @@ public class Migracio {
 	    }
 	}
 	
-	
-	
 	private static void migrarPersons() {
 		System.out.println(" ======================== MIGRACIO PERSONS ========================== ");
 		
@@ -631,6 +629,15 @@ public class Migracio {
 		return res;
 	}
 	
+	private static String clearHtmlObjects(String html, String tag) {
+		int idx = 0;
+		do {
+			idx = html.indexOf("<"+tag);
+			if (idx>-1)	html = html.substring(0, idx)+html.substring(html.indexOf("</"+tag+">")+9);
+		} while(idx>-1);
+		return html;
+	}
+	
 	private static Map<String, String> objectExpedient = new HashMap<String, String>();
 	
 	public static void migrarEvents() {
@@ -757,13 +764,15 @@ public class Migracio {
 							    			} else if (((String)currDoc.get("doctype")).startsWith("Introduction") || ((String)currDoc.get("doctype")).startsWith("Activity")) {
 							    				event.put("Description", currDoc.get("Description"));
 							    			} else if (((String)currDoc.get("doctype")).startsWith("List of works")) {
-							    				currDoc.put("className", "Text");
+							    				currDoc.put("className", "Text");	// TODO: check whether set class is correct
 							    				documents.put(lastDocument, currDoc);
 							    			} else if (((String)currDoc.get("doctype")).startsWith("Documentation")) {
-							    				// no action
+							    				currDoc.put("className", "Text");	// TODO: check whether set class is correct
+							    				documents.put(lastDocument, currDoc);
 							    			} else if (((String)currDoc.get("doctype")).startsWith("Collection")) {
 							    				// no action
 							    			} else if (((String)currDoc.get("doctype")).startsWith("Event")) {
+							    				currDoc.put("FatacId", lastDocument );
 							    				currDoc.put("className", "SpecificActivity");
 							    				specificEvents.put(lastDocument, currDoc);
 							    			}
@@ -780,6 +789,7 @@ public class Migracio {
 							    		//System.out.println("doc-title " + object1.toString());
 							    	} else if (property.equals("http://purl.org/dc/elements/1.1/description")) {
 							    		String desc = object1.toString().replaceAll(" class=\"spip\"", "").replaceAll(" class=\"spip_out\"","");
+							    		desc = clearHtmlObjects(desc, "iframe");
 							    		currDoc.put("Description", desc);
 							    		//System.out.println("doc-description " + desc);
 							    	} else if (property.equals("http://www.fundaciotapies.org/terms/0.1/doctype")) {
@@ -808,10 +818,12 @@ public class Migracio {
 			    				currDoc.put("className", "Text"); // TODO: check whether set class is correct
 			    				documents.put(lastDocument, currDoc);
 			    			} else if ("Documentation".equals(currDoc.get("doctype"))) {
-			    				// no action
+			    				currDoc.put("className", "Text"); // TODO: check whether set class is correct
+			    				documents.put(lastDocument, currDoc);
 			    			} else if ("Collection".equals(currDoc.get("doctype"))) {
 			    				// no action
 			    			} else if ("Event".equals(currDoc.get("doctype"))) {
+			    				currDoc.put("FatacId", lastDocument );
 			    				currDoc.put("className", "SpecificActivity");
 			    				specificEvents.put(lastDocument, currDoc);
 			    			}
@@ -1155,7 +1167,7 @@ public class Migracio {
 	public static String getRealId(String c, String fatacId) {
 		try {
 			// Send data
-		    URL url = new URL("http://localhost:8080/ArtsCombinatoriesRest/getRealId?class="+c+"&id="+fatacId);
+		    URL url = new URL("http://localhost:8080/ArtsCombinatoriesRest/getRealId?c="+c+"&id="+fatacId);
 		    HttpURLConnection conn = (HttpURLConnection)url.openConnection();
 		    conn.setRequestMethod("GET");
 	
@@ -1169,7 +1181,9 @@ public class Migracio {
 	
 		    rd.close();
 		    
-			return sb.toString();
+			String res = sb.toString();
+			if ("".equals(res.trim())) return null;
+			return res;
 		} catch (Exception e) {
 			return null;
 		}
@@ -1251,6 +1265,7 @@ public class Migracio {
 		} else if (type1.equals("ft:participant_id") && type2.equals("ft:event_id")) {
 			String sid1 = getRealId("Person", id1);
 			String sid2 = getRealId("FrameActivity", id2);
+			if (sid2==null) sid2 = getRealId("SpecificActivity", id2);
 			String roleName = getRoleName(roleId);
 			
 			if (roleName.equals("Workshop tutor")) roleName = "Workshop_tutor";
@@ -1274,6 +1289,7 @@ public class Migracio {
 		} else if (type1.equals("ft:publication_id") && type2.equals("ft:event_id")) {
 			String sid1 = getRealId("Publication", id1);
 			String sid2 = getRealId("FrameActivity", id2);
+			if (sid2==null) sid2 = getRealId("SpecificActivity", id2);
 			
 			CustomMap pub = getObject(sid1);
 			pub.put("isPublicationoftheEvent", sid2);
@@ -1914,7 +1930,6 @@ public class Migracio {
 				if (r.get("trad.français technique:")!=null && !"".equals(r.get("trad.français technique:"))) {
 					work.put("Technique", r.get("trad.français technique:").trim()+"@fr");
 				}
-				
 				if (r.get("Títol")!=null && !"".equals(r.get("Títol"))) {
 					work.put("Title", r.get("Títol").trim()+"@ca");
 				}
@@ -1928,7 +1943,8 @@ public class Migracio {
 					work.put("Title", r.get("trad. français").trim()+"@fr");
 				}
 				if (r.get("Valoració Econòmica en €")!=null && !"".equals(r.get("Valoració Econòmica en €"))) {
-					work.put("EstimatedValue", r.get("Valoració Econòmica en €"));
+					Double d = new Double(r.get("Valoració Econòmica en €").replace(',', '.'));
+					work.put("EstimatedValue", Math.round(Math.abs(d)) +  " Euro.");
 				}
 				if (r.get("Edició")!=null && !"".equals(r.get("Edició"))) {
 					work.put("className", "Publication");
@@ -2234,15 +2250,15 @@ public class Migracio {
 		SimpleDateFormat sdf = new SimpleDateFormat("hh:mm");
 		System.out.println("Starting migration at " + sdf.format(new GregorianCalendar().getTime()));
 		
-		// ----- Migració de SPIP
+		// ----- Migració de SPIP				DONE
 		migrarPersons(); 						
 		migrarEvents();							
 		migrarPublications();
 		migrarRelations();
 		
-		// ----- Migració de File-Maker
+		// ----- Migració de File-Maker			DONE
 		migrarFileMaker1();
-		migrarFileMaker2(); 
+		migrarFileMaker2();
 		migrarFileMaker3();
 		
 		// ----- Migració de Media
