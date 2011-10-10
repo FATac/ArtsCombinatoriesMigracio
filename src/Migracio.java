@@ -324,38 +324,51 @@ public class Migracio {
 	
 	private static String uploadObjectFile(String id, String fileName) throws Exception {
 		if (MIGRAR) {
-			URL url = new URL("http://"+hostport+"/ArtsCombinatoriesRest/objects/"+id+"/update");
-			HttpURLConnection conn = (HttpURLConnection)url.openConnection();
-		    conn.setRequestProperty("Content-Type", "application/json");
-		    conn.setRequestMethod("POST");
-		    conn.setDoOutput(true);
-		    DataOutputStream wr = new DataOutputStream(conn.getOutputStream());
-		    FileInputStream fin = new FileInputStream(fileName);
-		    byte[] input = new byte[255];
-			int b = 0;
-			while ((b = fin.read(input)) > 0) wr.write(input, 0, b);
-		    wr.flush();
-		    wr.close();
-		    
-		    // Get the response
-		    BufferedReader rd = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-		    String str;
-		    StringBuffer sb = new StringBuffer();
-		    while ((str = rd.readLine()) != null) {
-		    	sb.append(str);
-		    }
-
-		    rd.close();
-		    conn.disconnect();
-		    
-		    if (sb.toString().equals("error")) {
-		    	error_count++;
-		    	throw new Exception("Error uploading file");
-		    }
-		    
-		    String res = sb.toString();
-		   // System.out.println("SERVER RESPONSE: " +  res);
-		    return res;
+			try {
+				URL url = new URL("http://"+hostport+"/ArtsCombinatoriesRest/objects/"+id+"/file/upload?fn="+fileName.substring(fileName.length()-5));
+				
+				HttpURLConnection conn = (HttpURLConnection)url.openConnection();
+				conn.setRequestProperty("Content-Type", "application/json");
+			    conn.setRequestMethod("POST");
+			    conn.setDoOutput(true);
+			    File file = new File(fileName);
+			    FileInputStream fin = new FileInputStream(file);
+			    conn.setFixedLengthStreamingMode((int)file.length());
+			    
+			    DataOutputStream wr = new DataOutputStream(conn.getOutputStream());
+			    
+			    byte[] input = new byte[1024*4];
+				int b = 0;
+				
+				while ((b = fin.read(input)) > 0) {
+					wr.write(input, 0, b);
+					wr.flush();
+				}
+			    wr.close();
+			    
+			    // Get the response
+			    BufferedReader rd = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+			    String str;
+			    StringBuffer sb = new StringBuffer();
+			    while ((str = rd.readLine()) != null) {
+			    	sb.append(str);
+			    }
+	
+			    rd.close();
+			    conn.disconnect();
+			    
+			    if (sb.toString().equals("error")) {
+			    	error_count++;
+			    	throw new Exception("Error uploading file");
+			    }
+			    
+			    String res = sb.toString();
+			   // System.out.println("SERVER RESPONSE: " +  res);
+			    return res;
+			} catch (OutOfMemoryError e) {
+				System.out.println("WARNING: Problema de falta de memoria pujant arxiu: " + fileName + " per a l'objecte: " + id);
+				System.gc();
+			}
 		}
 		
 		return null;
@@ -394,7 +407,7 @@ public class Migracio {
 		try {
 			// baixar info de persones 
 			if (DOWNLOAD_DATA) {
-				System.out.println("Downloading persons rdf data...");
+				//System.out.println("Downloading persons rdf data...");
 				URL personsUrl = new URL("http://www.fundaciotapies.org/site/spip.php?page=all-participants-rdf");
 				BufferedReader in = new BufferedReader(new InputStreamReader(personsUrl.openStream()));
 				
@@ -456,7 +469,7 @@ public class Migracio {
 						data.put("className", "Person");
 						//System.out.println("FatacId " + fatacId);
 						
-						System.out.println("Reading person...");
+						//System.out.println("Reading person...");
 						
 						while(it2.hasNext()) {
 							Statement stmt1 = it2.next();
@@ -490,12 +503,12 @@ public class Migracio {
 						    }
 						}
 						
-						System.out.println("Uploading person...");
+						//System.out.println("Uploading person...");
 						String agentUri = uploadObject(data);
 						String fullName = ((data.get("givenName")!=null?data.get("givenName")+" ":"") + (data.get("lastName")!=null?data.get("lastName"):"")).trim();
 						backupAgents.put(fullName, agentUri);
 
-						System.out.println("Uploaded. ");
+						//System.out.println("Uploaded. ");
 			    	} catch (Exception e) {
 			    		System.out.println("ERROR with person " + object.toString());
 			    		e.printStackTrace();
@@ -639,6 +652,7 @@ public class Migracio {
 	}
 	
 	private static Map<String, String> objectExpedient = new HashMap<String, String>();
+	private static Map<String, String> eventExpedient = new HashMap<String, String>();
 	
 	public static void migrarEvents() {
 		System.out.println(" ======================== MIGRACIO EVENTS ========================== ");
@@ -646,7 +660,7 @@ public class Migracio {
 		try {
 			// migrar events
 			if (DOWNLOAD_DATA) {
-				System.out.println("Downloading events rdf data...");
+				//System.out.println("Downloading events rdf data...");
 				URL eventsUrl = new URL("http://www.fundaciotapies.org/site/spip.php?page=all-events-rdf");
 				BufferedReader in = new BufferedReader(new InputStreamReader(eventsUrl.openStream()));
 				
@@ -717,7 +731,7 @@ public class Migracio {
 						String lastDocument = null;
 						String idExpedient = null;
 						
-						System.out.println("Reading event...");
+						//System.out.println("Reading event...");
 						while(it2.hasNext()) {
 							Statement stmt1 = it2.next();
 							
@@ -829,32 +843,35 @@ public class Migracio {
 			    			}
 						}
 						
-						System.out.println("Uploading event documents...");
+						//System.out.println("Uploading event documents...");
 						Iterator<Map.Entry<String, CustomMap>> it = documents.entrySet().iterator();
 						while (it.hasNext()) {
 							Map.Entry<String, CustomMap> entry = it.next();
 							String uri = uploadObject(entry.getValue());
 							caseFile.put("isWorks", uri);
 						}
-						System.out.println("Uploaded.");
+						//System.out.println("Uploaded.");
 						
-						System.out.println("Uploading specific events...");
+						//System.out.println("Uploading specific events...");
 						it = specificEvents.entrySet().iterator();
 						while (it.hasNext()) {
 							Map.Entry<String, CustomMap> entry = it.next();
 							String uri = uploadObject(entry.getValue());
 							event.put("hasSpecificActivity", uri);
 						}
-						System.out.println("Uploaded.");
+						//System.out.println("Uploaded.");
 						
-						System.out.println("Uploading event...");
+						//System.out.println("Uploading event...");
 						String eventUri = uploadObject(event);
 						caseFile.put("references", eventUri);
 						String caseFileUri = uploadObject(caseFile);
-						System.out.println("Uploaded.");
+						//System.out.println("Uploaded.");
 						
 						if (idExpedient!=null) {
 							objectExpedient.put(caseFileUri, idExpedient);
+						}
+						if (event.get("Title")!=null) {
+							eventExpedient.put(caseFileUri, event.get("Title")+"");
 						}
 						
 			    	} catch (Exception e) {
@@ -877,7 +894,7 @@ public class Migracio {
 		try {
 			// migrar publications
 			if (DOWNLOAD_DATA) {
-				System.out.println("Downloading publications rdf data...");
+				//System.out.println("Downloading publications rdf data...");
 				URL publicationsUrl = new URL("http://www.fundaciotapies.org/site/spip.php?page=all-publications-rdf");
 				BufferedReader in = new BufferedReader(new InputStreamReader(publicationsUrl.openStream()));
 				
@@ -938,7 +955,7 @@ public class Migracio {
 						publication.put("FatacId", fatacId );
 						//System.out.println("FatacId " + fatacId);
 						
-						System.out.println("Reading publication...");
+						//System.out.println("Reading publication...");
 						
 						String editorLastId = null;
 						Map<String, String> currEditor = null;
@@ -1042,7 +1059,6 @@ public class Migracio {
 									}
 						    	}
 						    } else if (subjectURI.contains("separata")) {
-						    	//System.out.println(url + "<<<<< HERE");
 						    	// TODO: migrar separata MANUALMENT ja que només n'hi ha 7
 						    } else if (subjectURI.contains("distributors")) {
 						    	if (!subjectURI.equals(distrLastId)) {
@@ -1107,11 +1123,11 @@ public class Migracio {
 						if (editorLastId!=null)	editorsList.add(currEditor);
 						if (distrLastId!=null)	distributorsList.add(currDistr);
 					
-						System.out.println("Uploading publication...");
+						//System.out.println("Uploading publication...");
 						String puri = uploadObject(publication);
-						System.out.println("Uploaded. ");
+						//System.out.println("Uploaded. ");
 						
-						System.out.println("Uploading publication editors...");
+						//System.out.println("Uploading publication editors...");
 						for(Map<String, String> e : editorsList) {
 							CustomMap role = new CustomMap();
 							role.put("className","Editor");
@@ -1130,9 +1146,9 @@ public class Migracio {
 								updateObject(orguri, org);
 							}
 						}
-						System.out.println("Uploaded.");
+						//System.out.println("Uploaded.");
 						
-						System.out.println("Uploading publication distributors...");
+						//System.out.println("Uploading publication distributors...");
 						for(Map<String, String> d : distributorsList) {
 							CustomMap role = new CustomMap();
 							role.put("className","Publisher");
@@ -1150,7 +1166,7 @@ public class Migracio {
 								updateObject(orguri, org);
 							}
 						}
-						System.out.println("Uploaded.");
+						//System.out.println("Uploaded.");
 						
 			    	} catch (Exception e) {
 			    		System.out.println("ERROR with publication " + object.toString());
@@ -1246,7 +1262,7 @@ public class Migracio {
 	private static Set<String> participantsNotFound = new TreeSet<String>();
 	
 	private static void migrarRelation(String type1, String id1, String type2, String id2, String roleId) throws Exception {
-		System.out.println("Uploading relation/role...");
+		//System.out.println("Uploading relation/role...");
 		if (type1.equals("ft:event_id_1") && type2.equals("ft:event_id_2")) {
 			String sid1 = getRealId("FrameActivity", id1);
 			String sid2 = getRealId("FrameActivity", id2);
@@ -1323,7 +1339,7 @@ public class Migracio {
 		} else if (type1.equals("ft:separata_id")) {
 			// TODO: manualment
 		}
-		System.out.println("Uploaded...");
+		//System.out.println("Uploaded...");
 	}
 	
 	private static void migrarRelations() {
@@ -1332,7 +1348,7 @@ public class Migracio {
 		try {
 			// migrar relations
 			if (DOWNLOAD_DATA) {
-				System.out.println("Downloading relations rdf data...");
+				//System.out.println("Downloading relations rdf data...");
 				URL relationsUrl = new URL("http://www.fundaciotapies.org/site/spip.php?page=all-relations-rdf");
 				BufferedReader in = new BufferedReader(new InputStreamReader(relationsUrl.openStream()));
 				
@@ -1417,25 +1433,30 @@ public class Migracio {
 			r.readHeaders();
 			
 			String lastTitle = null;
-			CustomMap caseFile = null;
+			String caseFileUri = null;
 			
 			Set<String> linkedExpos = null;
 			Set<String> prodExpoPair = null;
 			Set<String> realExpoPair = null;
+			List<String> mediaList = null;
 			
 			while (r.readRecord()) {
 				String[] mfid = {null, null};
 				String eventUri = null;
 				
 				if (!r.get("títol").equals(lastTitle)) {
-					if (lastTitle!=null && caseFile!=null) uploadObject(caseFile);
-					caseFile = new CustomMap();
-					caseFile.put("className", "Case-Files");
-					lastTitle = r.get("títol");
+					if ((caseFileUri!=null) && (mediaList!=null)) {
+						CustomMap caseFile = getObject(caseFileUri);
+						for (String m : mediaList) caseFile.put("hasMedia", m);
+						updateObject(caseFileUri, caseFile);
+					}
 					
+					lastTitle = r.get("títol");
 					linkedExpos = new TreeSet<String>();
 					prodExpoPair = new TreeSet<String>();
 					realExpoPair = new TreeSet<String>();
+					mediaList = new ArrayList<String>();
+					caseFileUri = null;
 				}
 				
 				CustomMap media = new CustomMap();
@@ -1467,15 +1488,18 @@ public class Migracio {
 					
 					if (!linkedExpos.contains(expo)) {
 						linkedExpos.add(expo);
+
+						Set<Map.Entry<String, String>> roll = eventExpedient.entrySet();
+						for(Map.Entry<String, String> p : roll) {
+							String eventTitle = p.getValue();
+							if (eventTitle.contains(expo)){
+								caseFileUri = p.getKey();
+								break;
+							}
+						}
 						
-						List<String> l = find("Title", expo, "FrameActivity");
-						if (l.size()==0) l = find("Title", expo, "SpecificActivity");
-						
-						if (l.size()>0) {
-							eventUri = l.get(0);
-							caseFile.put("references", eventUri);
-						} else {
-							System.out.println("WARNING: No s'ha trobat l'EVENT '" + expo + "' Cal relacionar-lo manualment" );
+						if (caseFileUri==null) {
+							System.out.println("WARNING: No s'ha pogut trobar l'Event '"+expo+"', caldrà relacionar-lo MANUALMENT");
 						}
 					}
 				}
@@ -1609,9 +1633,9 @@ public class Migracio {
 					media.put("Title", r.get("títol"));
 				}
 				
-				System.out.println("Uploading Media");
+				//System.out.println("Uploading Media");
 				String mediaUri = uploadObject(media);
-				caseFile.put("hasMedia", mediaUri);
+				mediaList.add(mediaUri);
 				
 				if (mfid[0]!=null) {
 					mfid[1] = mediaUri;
@@ -1643,7 +1667,11 @@ public class Migracio {
 				}
 			}
 			
-			if (lastTitle!=null && caseFile!=null) uploadObject(caseFile);
+			if (lastTitle!=null && (caseFileUri!=null) && (mediaList!=null)) {
+				CustomMap caseFile = getObject(caseFileUri);
+				for (String m : mediaList) caseFile.put("hasMedia", m);
+				updateObject(caseFileUri, caseFile);
+			}
 			
 			r.close();
 		} catch (Exception e) {
@@ -1658,12 +1686,13 @@ public class Migracio {
 			CsvReader r = new CsvReader(new FileReader(new File("./fm/CF-fitxers-conferencies.csv")));
 			r.readHeaders();
 
-			CustomMap caseFile = null;
 			String lastTitle = null;
 			
 			Set<String> linkedExpos = null;
 			Set<String> prodExpoPair = null;
 			Set<String> autorExpoPair = null;
+			List<String> mediaList = null;
+			String caseFileUri = null;
 			
 			while (r.readRecord()) {
 				String[] mfid = {null, null};
@@ -1671,14 +1700,19 @@ public class Migracio {
 				String eventUri = null;
 				
 				if (!r.get("títol").equals(lastTitle)) {
-					if (lastTitle!=null && caseFile!=null) uploadObject(caseFile);
-					caseFile = new CustomMap();
-					caseFile.put("className", "Case-Files");
+					if ((caseFileUri!=null) && (mediaList!=null)) {
+						CustomMap caseFile = getObject(caseFileUri);
+						for (String m : mediaList) caseFile.put("hasMedia", m);
+						updateObject(caseFileUri, caseFile);
+					}
+					
 					lastTitle = r.get("títol");
 					
 					linkedExpos = new TreeSet<String>();
 					prodExpoPair = new TreeSet<String>();
 					autorExpoPair = new TreeSet<String>();
+					mediaList = new ArrayList<String>();
+					caseFileUri = null;
 				}
 				
 				CustomMap lang = new CustomMap();
@@ -1697,13 +1731,18 @@ public class Migracio {
 					
 					if (!linkedExpos.contains(expo)) {
 						linkedExpos.add(expo);
-						List<String> l = find("Title", expo, "Event");
+
+						Set<Map.Entry<String, String>> roll = eventExpedient.entrySet();
+						for(Map.Entry<String, String> p : roll) {
+							String eventTitle = p.getValue();
+							if (eventTitle.contains(expo)){
+								caseFileUri = p.getKey();
+								break;
+							}
+						}
 						
-						if (l.size()>0) {
-							eventUri = l.get(0); 
-							caseFile.put("references", eventUri);
-						} else {
-							System.out.println("WARNING: No s'ha trobat l'EVENT '" + expo + "' Cal relacionar-lo manualment" );
+						if (caseFileUri==null) {
+							System.out.println("WARNING: No s'ha pogut trobar l'Event '"+expo+"', caldrà relacionar-lo MANUALMENT");
 						}
 					}
 				} 
@@ -1820,9 +1859,9 @@ public class Migracio {
 					media.put("Title", r.get("títol"));
 				}
 				
-				System.out.println("Uploading Media");
+				//System.out.println("Uploading Media");
 				String mediaUri = uploadObject(media);
-				caseFile.put("hasMedia", mediaUri);
+				mediaList.add(mediaUri);
 				
 				if (mfid[0]!=null) {					
 					mfid[1] = mediaUri;
@@ -1854,7 +1893,11 @@ public class Migracio {
 				}
 			}
 			
-			if (lastTitle!=null && caseFile!=null) uploadObject(caseFile);
+			if ((caseFileUri!=null) && (mediaList!=null)) {
+				CustomMap caseFile = getObject(caseFileUri);
+				for (String m : mediaList) caseFile.put("hasMedia", m);
+				updateObject(caseFileUri, caseFile);
+			}
 			
 			r.close();
 		} catch (Exception e) {
@@ -2048,7 +2091,7 @@ public class Migracio {
 		
 		//List<String> llistaFitxersMedia = getMediaList("BANC ÀUDIOVISUAL"); TODO set path
 		// TODO: obtenir dades adicionals video (duració, format, bitrate, etc.)
-		List<String> llistaFitxersMedia = getMediaList("/home/jordi.roig.prieto/Prova");
+		List<String> llistaFitxersMedia = getMediaList("/home/jordi.roig.prieto/PROVA_MIGRACIO_MEDIA");
 		
 		try {
 			for (String[] dup : mediaFileId) {
@@ -2056,8 +2099,8 @@ public class Migracio {
 				String objectId = dup[1];
 				
 				for (String fn : llistaFitxersMedia) {
-					if (fn.contains(fileId)) {
-						System.out.println("Uploading media file for object " + objectId);
+					if (fn.contains(fileId.substring(0, 4)) && fn.contains(fileId.substring(12))) {
+						//System.out.println("Uploading media file for object " + objectId);
 						uploadObjectFile(objectId, fn); 
 						afegirACollection(objectId, fn);
 						break;
@@ -2103,22 +2146,24 @@ public class Migracio {
 		image.put("format",fn2.substring(fn2.length()-3));
 		
 		int idx = fn2.indexOf("C0");
-		String codiCol = fn2.substring(idx,idx+4);
-		for (String[] c : collectionList) {
-			if (c[0].equals(codiCol)) {
-				image.put("isCollectedIn", c[2]);
-				break;
+		if (idx!=-1) {
+			String codiCol = fn2.substring(idx,idx+4);
+			for (String[] c : collectionList) {
+				if (c[0].equals(codiCol)) {
+					image.put("isCollectedIn", c[2]);
+					break;
+				}
 			}
 		}
-				
-		// TODO: obtenir format imatge
 	}
 	
 	private static void migrarImages() {
 		System.out.println(" ======================== MIGRACIO IMAGES ========================== ");
 		
 		//List<String> llistaFitxersMedia = getMediaList("BANC D'IMATGES HISTÒRIC"); TODO set path
-		List<String> llistaFitxersMedia = getMediaList("/home/jordi.roig.prieto/Prova");
+		List<String> llistaFitxersMedia = getMediaList("/home/jordi.roig.prieto/PROVA_MIGRACIO_MEDIA");
+		
+		//System.out.println(objectExpedient);
 		
 		try {
 			Set<Map.Entry<String, String>> ent = objectExpedient.entrySet();
@@ -2128,23 +2173,44 @@ public class Migracio {
 				
 				for (String fn : llistaFitxersMedia) {
 					int idx = fn.indexOf(codiExp+"_FF");
-					if (idx==-1) continue;
-					
-					CustomMap image = new CustomMap();
-					image.put("className", "Image");
-					String fn2 = fn.substring(idx);
-					
-					putImageData(image, fn, fn2);
-					
-					System.out.println("Uploading image");
-					String imageuri = uploadObject(image);
-					System.out.println("Uploaded.");
-					
-					uploadObjectFile(imageuri, fn);
-					
-					CustomMap exp = getObject(uriExp);
-					exp.put("hasMedia", imageuri);
-					updateObject(uriExp, exp);
+					int idx2 = fn.indexOf(codiExp+"_");
+					if (idx!=-1) {
+						CustomMap image = new CustomMap();
+						image.put("className", "Image");
+						String fn2 = fn.substring(idx);
+						
+						putImageData(image, fn, fn2);
+						
+						//System.out.println("Uploading image");
+						String imageuri = uploadObject(image);
+						//System.out.println("Uploaded.");
+						
+						uploadObjectFile(imageuri, fn);
+						
+						CustomMap exp = getObject(uriExp);
+						exp.put("hasMedia", imageuri);
+						updateObject(uriExp, exp);
+					} else if (idx2!=-1) {
+						CustomMap media = new CustomMap();
+						String fn2 = fn.substring(idx2);
+						
+						if (fn.endsWith(".tif") || fn.endsWith(".jpg")) {
+							media.put("className", "Image");
+							putImageData(media, fn, fn2);
+						} else if (fn.endsWith(".pdf") || fn.endsWith(".doc") || fn.endsWith(".rtf")) {
+							media.put("className", "Text");
+						} else continue;
+						
+						//System.out.println("Uploading " + media.get("className"));
+						String imageuri = uploadObject(media);
+						//System.out.println("Uploaded.");
+						
+						uploadObjectFile(imageuri, fn);
+						
+						CustomMap exp = getObject(uriExp);
+						exp.put("hasMedia", imageuri);
+						updateObject(uriExp, exp);
+					}
 				}
 			}
 		} catch (Exception e) {
@@ -2185,8 +2251,10 @@ public class Migracio {
 
 	
 	private static void migrarCollections() {
+		System.out.println(" ======================== MIGRACIO COLLECTIONS ========================== ");
+		
 		try {
-			System.out.println("Uploading collections...");
+			//System.out.println("Uploading collections...");
 			int idx = 0;
 			while(idx<collectionList.length) {
 				CustomMap collection = new CustomMap();
@@ -2196,7 +2264,7 @@ public class Migracio {
 				collectionList[idx][2] = uri;
 				idx++;
 			}
-			System.out.println("Uploaded.");
+			//System.out.println("Uploaded.");
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -2242,7 +2310,7 @@ public class Migracio {
 			System.out.println(it.next());
 		}
 	}
-	
+
 	public static void main(String[] args) throws Exception {
 		DOWNLOAD_DATA = true;
 		MIGRAR = true;	
@@ -2261,21 +2329,20 @@ public class Migracio {
 		migrarFileMaker2();
 		migrarFileMaker3();
 		
-		// ----- Migració de Media
-		//migrarCollections(); 					// DONE.
-		//migrarMedia();
-		//migrarImages();
-		
+		// ----- Migració de Media				DONE?			
+		migrarCollections(); 					
+		migrarMedia();
+		migrarImages();
+
 		//System.out.println(participantsNotFound);
-		
+
 		System.out.println("FINISHED migration at " + sdf.format(new GregorianCalendar().getTime()));
 		// -- utils no migracio
+
 		//collectAgents();
 		//collectCities();
 	}
 
-	// TODO: recordar que faltaven camps per exportar del file maker
-	
 	// TODO: recordar determinar el doctype documentation en els events
 
 }
