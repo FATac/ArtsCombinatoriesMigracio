@@ -102,16 +102,18 @@ class CustomMap extends HashMap<String, Object>{
 		key = key.trim();
 		Object prev = super.get(key);
 		if (prev!=null && value!=null) {
-			if (prev instanceof String) {
-				super.put(key, new String[]{(String)prev, value});
-			} else {
-				String[] arr = (String[])prev;
-				String[] curr = new String[arr.length+1];
-				int i = 0;
-				for (String s : arr) curr[i++] = s;
-				curr[i] = value;
-				
-				super.put(key, curr);
+			if (!"about".equals(key)) {
+				if (prev instanceof String) {
+					super.put(key, new String[]{(String)prev, value});
+				} else {
+					String[] arr = (String[])prev;
+					String[] curr = new String[arr.length+1];
+					int i = 0;
+					for (String s : arr) curr[i++] = s;
+					curr[i] = value;
+					
+					super.put(key, curr);
+				}
 			}
 		} else {
 			super.put(key, value);
@@ -121,6 +123,7 @@ class CustomMap extends HashMap<String, Object>{
 	}
 	
 	public String[] put(String key, String[] value) {
+		if ("about".equals(key)) return null;
 		if (key==null) return null;
 		key = key.trim();
 		Object prev = super.get(key);
@@ -322,10 +325,10 @@ public class Migracio {
 		return null;
 	}
 	
-	private static String uploadObjectFile(String id, String fileName) throws Exception {
+	private static String uploadObjectFile(String fileName) throws Exception {
 		if (MIGRAR) {
 			try {
-				URL url = new URL("http://"+hostport+"/ArtsCombinatoriesRest/objects/"+id+"/file/upload?fn="+fileName.substring(fileName.length()-5));
+				URL url = new URL("http://"+hostport+"/ArtsCombinatoriesRest/media/upload?fn="+fileName.substring(fileName.length()-5));
 				
 				HttpURLConnection conn = (HttpURLConnection)url.openConnection();
 				conn.setRequestProperty("Content-Type", "application/json");
@@ -366,7 +369,7 @@ public class Migracio {
 			   // System.out.println("SERVER RESPONSE: " +  res);
 			    return res;
 			} catch (OutOfMemoryError e) {
-				System.out.println("WARNING: Problema de falta de memoria pujant arxiu: " + fileName + " per a l'objecte: " + id);
+				System.out.println("WARNING: Problema de falta de memoria pujant arxiu: " + fileName);
 				System.gc();
 			}
 		}
@@ -504,8 +507,9 @@ public class Migracio {
 						}
 						
 						//System.out.println("Uploading person...");
-						String agentUri = uploadObject(data);
 						String fullName = ((data.get("givenName")!=null?data.get("givenName")+" ":"") + (data.get("lastName")!=null?data.get("lastName"):"")).trim();
+						data.put("about", fullName);
+						String agentUri = uploadObject(data);
 						backupAgents.put(fullName, agentUri);
 
 						//System.out.println("Uploaded. ");
@@ -616,9 +620,11 @@ public class Migracio {
 						
 						if (names!=null) {
 							city.put("firstName", names[1]+"@"+l);
+							city.put("about", names[1]);
 							cn.add(names[1]);
 							tmp = names[0];
 							country.put("firstName", names[0]+"@"+l);
+							country.put("about", names[0]);
 						} else {
 							city.put("firstName", foundName+"@"+l);
 						}
@@ -747,6 +753,7 @@ public class Migracio {
 							    if (subjectURI.contains("events")) {
 							    	if (property.equals("http://purl.org/dc/elements/1.1/title")) {
 										event.put("Title", object1.toString());
+										event.put("about", object1.toString());
 										//caseFile.put("Description", object1.toString());
 										//System.out.println("title" + object1.toString());
 									} else if (property.equals("http://purl.org/dc/elements/1.1/date")) {
@@ -800,6 +807,7 @@ public class Migracio {
 							    	
 							    	if (property.equals("http://purl.org/dc/elements/1.1/title")) {
 							    		currDoc.put("Title", object1.toString());
+							    		currDoc.put("about", object1.toString());
 							    		//System.out.println("doc-title " + object1.toString());
 							    	} else if (property.equals("http://purl.org/dc/elements/1.1/description")) {
 							    		String desc = object1.toString().replaceAll(" class=\"spip\"", "").replaceAll(" class=\"spip_out\"","");
@@ -980,6 +988,7 @@ public class Migracio {
 						    if (subjectURI.contains("publications") || value.startsWith("ISBN")) {
 						    	if (predicateURI.equals("http://purl.org/dc/elements/1.1/title")) {
 									publication.put("Title", value);
+									publication.put("about", value);
 								} else if (predicateURI.equals("http://purl.org/dc/elements/1.1/description")) {
 									publication.put("Description", value);
 								} else if (predicateURI.equals("http://www.fundaciotapies.org/terms/0.1/cover")) {
@@ -1138,6 +1147,7 @@ public class Migracio {
 							String orguri = addedOrganizations.get(e.get("firstName"));
 							if (orguri==null) {
 								e.put("performsRole", roleuri);
+								e.put("about", e.get("firstName"));
 								orguri = uploadObject(new CustomMap(e));
 								addedOrganizations.put(e.get("firstName"), orguri);
 							} else {
@@ -1158,6 +1168,7 @@ public class Migracio {
 							String orguri = addedOrganizations.get(d.get("firstName"));
 							if (orguri==null) {
 								d.put("performsRole", roleuri);
+								d.put("about", d.get("firstName"));
 								orguri = uploadObject(new CustomMap(d));
 								addedOrganizations.put(d.get("firstName"), orguri);
 							} else {
@@ -1532,10 +1543,12 @@ public class Migracio {
 										agent.put("className", "Person");
 										agent.put("givenName", fname[0]);
 										if (fname.length>1)	agent.put("lastName", p.replace(fname[0]+" ", ""));
+										agent.put("about", fname[0]);
 									} else {
 										agent.put("className", "Organisation");
 										agent.put("firstName", p);
-									}	 
+										agent.put("about", p);
+									}
 									
 									uri = uploadObject(agent);
 									backupAgents.put(p, uri);
@@ -1580,10 +1593,12 @@ public class Migracio {
 										String[] fname = p.split(" ");
 										agent.put("className", "Person");
 										agent.put("givenName", fname[0]);
+										agent.put("about", fname[0]);
 										if (fname.length>1)	agent.put("lastName", p.replace(fname[0]+" ", ""));
 									} else {
 										agent.put("className", "Organisation");
 										agent.put("firstName", p);
+										agent.put("about", p);
 									}	 
 									
 									uri = uploadObject(agent);
@@ -1631,6 +1646,7 @@ public class Migracio {
 					//if (caseFile.get("Description")==null)
 					//	caseFile.put("Description", r.get("títol"));
 					media.put("Title", r.get("títol"));
+					media.put("about", r.get("títol"));
 				}
 				
 				//System.out.println("Uploading Media");
@@ -1770,6 +1786,7 @@ public class Migracio {
 								
 								agent.put("className", pt);
 								agent.put("Person".equals(pt)?"givenName":"firstName", p);
+								agent.put("about", p);
 								uri = uploadObject(agent);
 								backupAgents.put(p, uri);
 							} else {
@@ -1799,6 +1816,7 @@ public class Migracio {
 							CustomMap agent = new CustomMap();
 							agent.put("className", "Organisation");
 							agent.put("firstName", p);
+							agent.put("about", p);
 							uri = uploadObject(agent);
 							backupAgents.put(p, uri);
 						} else {
@@ -1857,6 +1875,7 @@ public class Migracio {
 					//if (caseFile.get("Description")==null)
 					//	caseFile.put("Description", r.get("títol"));
 					media.put("Title", r.get("títol"));
+					media.put("about", r.get("títol"));
 				}
 				
 				//System.out.println("Uploading Media");
@@ -1975,6 +1994,7 @@ public class Migracio {
 				}
 				if (r.get("Títol")!=null && !"".equals(r.get("Títol"))) {
 					work.put("Title", r.get("Títol").trim()+"@ca");
+					work.put("about", r.get("Títol").trim());
 				}
 				if (r.get("trad. castellano")!=null && !"".equals(r.get("trad. castellano"))) {
 					work.put("Title", r.get("trad. castellano").trim()+"@es");
@@ -2009,6 +2029,7 @@ public class Migracio {
 										CustomMap agent = new CustomMap();
 										agent.put("className", "Organisation");
 										agent.put("firstName", p);
+										agent.put("about", p);
 										uri = uploadObject(agent);
 										backupAgents.put(p, uri);
 									} else {
@@ -2071,13 +2092,14 @@ public class Migracio {
 		return l;
 	}
 	
-	private static void afegirACollection(String objectId, String codi) throws Exception {
+	private static void afegirACollection(String objectId, String codi, String uri) throws Exception {
 		int idx = codi.indexOf("C0");
 		String codiCol = codi.substring(idx,idx+4);
 		for (String[] c : collectionList) {
 			if (c[0].equals(codiCol)) {
 				CustomMap media = getObject(objectId);
 				media.put("isCollectedIn", c[2]);
+				media.put("uri", uri);
 				updateObject(objectId, media);
 				break;
 			}
@@ -2101,8 +2123,8 @@ public class Migracio {
 				for (String fn : llistaFitxersMedia) {
 					if (fn.contains(fileId.substring(0, 4)) && fn.contains(fileId.substring(12))) {
 						//System.out.println("Uploading media file for object " + objectId);
-						uploadObjectFile(objectId, fn); 
-						afegirACollection(objectId, fn);
+						String uri = uploadObjectFile(fn); 
+						afegirACollection(objectId, fn, uri);
 						break;
 					}
 				}
@@ -2143,7 +2165,7 @@ public class Migracio {
 			image.put("OriginalSource", "Digital");
 		}
 		
-		image.put("format",fn2.substring(fn2.length()-3));
+		image.put("format",fn2.substring(fn2.length()-3).toLowerCase());
 		
 		int idx = fn2.indexOf("C0");
 		if (idx!=-1) {
@@ -2181,11 +2203,10 @@ public class Migracio {
 						
 						putImageData(image, fn, fn2);
 						
-						//System.out.println("Uploading image");
-						String imageuri = uploadObject(image);
-						//System.out.println("Uploaded.");
+						String fileuri = uploadObjectFile(fn);
 						
-						uploadObjectFile(imageuri, fn);
+						image.put("Uri", fileuri);
+						String imageuri = uploadObject(image);
 						
 						CustomMap exp = getObject(uriExp);
 						exp.put("hasMedia", imageuri);
@@ -2201,11 +2222,10 @@ public class Migracio {
 							media.put("className", "Text");
 						} else continue;
 						
-						//System.out.println("Uploading " + media.get("className"));
-						String imageuri = uploadObject(media);
-						//System.out.println("Uploaded.");
+						String fileuri = uploadObjectFile(fn);
+						media.put("Uri", fileuri);
 						
-						uploadObjectFile(imageuri, fn);
+						String imageuri = uploadObject(media);
 						
 						CustomMap exp = getObject(uriExp);
 						exp.put("hasMedia", imageuri);
@@ -2260,6 +2280,7 @@ public class Migracio {
 				CustomMap collection = new CustomMap();
 				collection.put("className", collectionList[idx][3]);
 				collection.put("Title", collectionList[idx][1]);
+				collection.put("about", collectionList[idx][1]);
 				String uri = uploadObject(collection);
 				collectionList[idx][2] = uri;
 				idx++;
@@ -2320,19 +2341,19 @@ public class Migracio {
 		
 		// ----- Migració de SPIP				DONE
 		migrarPersons(); 						
-		migrarEvents();							
-		migrarPublications();
-		migrarRelations();
+		//migrarEvents();							
+		//migrarPublications();
+		//migrarRelations();
 		
 		// ----- Migració de File-Maker			DONE
-		migrarFileMaker1();
-		migrarFileMaker2();
-		migrarFileMaker3();
+		//migrarFileMaker1();
+		//migrarFileMaker2();
+		//migrarFileMaker3();
 		
 		// ----- Migració de Media				DONE?			
-		migrarCollections(); 					
-		migrarMedia();
-		migrarImages();
+		//migrarCollections();
+		//migrarMedia();
+		//migrarImages();
 
 		//System.out.println(participantsNotFound);
 
