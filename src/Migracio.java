@@ -47,53 +47,6 @@ import com.hp.hpl.jena.rdf.model.Statement;
 import com.hp.hpl.jena.rdf.model.StmtIterator;
 import com.ibm.icu.util.GregorianCalendar;
 
-/*
- * 
-
-#
-
-# SCRIPT SPARQL	QUE CAL EXECUTAR ABANS DE MIGRAR
- 
- PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
- PREFIX ac: <http://www.fundaciotapies.org/ontologies/2011/4/ac.owl#>
-
-# Idiomes
-
-INSERT INTO GRAPH <http://localhost:8890/ACData> { <http://www.artscombinatories.cat/objects/Language/Catalan> rdf:type ac:Language }
-INSERT INTO GRAPH <http://localhost:8890/ACData> { <http://www.artscombinatories.cat/objects/Language/Italian> rdf:type ac:Language }
-INSERT INTO GRAPH <http://localhost:8890/ACData> { <http://www.artscombinatories.cat/objects/Language/Spanish> rdf:type ac:Language }
-INSERT INTO GRAPH <http://localhost:8890/ACData> { <http://www.artscombinatories.cat/objects/Language/English> rdf:type ac:Language }
-INSERT INTO GRAPH <http://localhost:8890/ACData> { <http://www.artscombinatories.cat/objects/Language/French> rdf:type ac:Language }
-INSERT INTO GRAPH <http://localhost:8890/ACData> { <http://www.artscombinatories.cat/objects/Language/Arabic> rdf:type ac:Language }
-INSERT INTO GRAPH <http://localhost:8890/ACData> { <http://www.artscombinatories.cat/objects/Language/German> rdf:type ac:Language }
-
-
-# KingArtWork individuals
-
-INSERT INTO GRAPH <http://localhost:8890/ACData> { <http://www.artscombinatories.cat/objects/KindArtWork/Dance> rdf:type ac:KindArtWork }
-INSERT INTO GRAPH <http://localhost:8890/ACData> { <http://www.artscombinatories.cat/objects/KindArtWork/Installation> rdf:type ac:KindArtWork }
-INSERT INTO GRAPH <http://localhost:8890/ACData> { <http://www.artscombinatories.cat/objects/KindArtWork/Performance> rdf:type ac:KindArtWork }
-INSERT INTO GRAPH <http://localhost:8890/ACData> { <http://www.artscombinatories.cat/objects/KindArtWork/Photo> rdf:type ac:KindArtWork }
-INSERT INTO GRAPH <http://localhost:8890/ACData> { <http://www.artscombinatories.cat/objects/KindArtWork/Picture> rdf:type ac:KindArtWork }
-INSERT INTO GRAPH <http://localhost:8890/ACData> { <http://www.artscombinatories.cat/objects/KindArtWork/Requiem> rdf:type ac:KindArtWork }
-INSERT INTO GRAPH <http://localhost:8890/ACData> { <http://www.artscombinatories.cat/objects/KindArtWork/Sculpture> rdf:type ac:KindArtWork }
-INSERT INTO GRAPH <http://localhost:8890/ACData> { <http://www.artscombinatories.cat/objects/KindArtWork/Sonata> rdf:type ac:KindArtWork }
-INSERT INTO GRAPH <http://localhost:8890/ACData> { <http://www.artscombinatories.cat/objects/KindArtWork/Videoart> rdf:type ac:KindArtWork }
-INSERT INTO GRAPH <http://localhost:8890/ACData> { <http://www.artscombinatories.cat/objects/KindArtWork/Graphic> rdf:type ac:KindArtWork }
-
-# Material individuals
-
-INSERT INTO GRAPH <http://localhost:8890/ACData> { <http://www.artscombinatories.cat/objects/Material/Gold> rdf:type ac:Material }
-INSERT INTO GRAPH <http://localhost:8890/ACData> { <http://www.artscombinatories.cat/objects/Material/Iron> rdf:type ac:Material }
-INSERT INTO GRAPH <http://localhost:8890/ACData> { <http://www.artscombinatories.cat/objects/Material/Marble> rdf:type ac:Material }
-INSERT INTO GRAPH <http://localhost:8890/ACData> { <http://www.artscombinatories.cat/objects/Material/Pastle> rdf:type ac:Material }
-INSERT INTO GRAPH <http://localhost:8890/ACData> { <http://www.artscombinatories.cat/objects/Material/Stone> rdf:type ac:Material }
-INSERT INTO GRAPH <http://localhost:8890/ACData> { <http://www.artscombinatories.cat/objects/Material/Tempera> rdf:type ac:Material }
-INSERT INTO GRAPH <http://localhost:8890/ACData> { <http://www.artscombinatories.cat/objects/Material/Titanium> rdf:type ac:Material }
-INSERT INTO GRAPH <http://localhost:8890/ACData> { <http://www.artscombinatories.cat/objects/Material/Wood> rdf:type ac:Material }
-  
- */
-
 class CustomMap extends HashMap<String, Object>{
 	private static final long serialVersionUID = -1812690206134151827L;
 	
@@ -251,7 +204,7 @@ public class Migracio {
 		}
 		//System.out.println("Migrating data: " + data);
 		if (MIGRAR) {
-			URL url = new URL("http://"+hostport+"/ArtsCombinatoriesRest/objects/upload");
+			URL url = new URL("http://"+hostport+"/ArtsCombinatoriesRest/resource/upload");
 		    HttpURLConnection conn = (HttpURLConnection)url.openConnection();
 		    conn.setRequestProperty("Content-Type", "application/json");
 		    conn.setRequestMethod("POST");
@@ -290,7 +243,7 @@ public class Migracio {
 		//System.out.println("Migrating data: id=" + id + " " + data);
 		if (data==null) return null;
 		if (MIGRAR) {
-			URL url = new URL("http://"+hostport+"/ArtsCombinatoriesRest/objects/"+id+"/update");
+			URL url = new URL("http://"+hostport+"/ArtsCombinatoriesRest/resource/"+id+"/update");
 		    HttpURLConnection conn = (HttpURLConnection)url.openConnection();
 		    conn.setRequestProperty("Content-Type", "application/json");
 		    conn.setRequestMethod("POST");
@@ -378,7 +331,7 @@ public class Migracio {
 	}
 	
 	private static CustomMap getObject(String id) throws Exception {
-		URL url = new URL("http://"+hostport+"/ArtsCombinatoriesRest/objects/"+id);
+		URL url = new URL("http://"+hostport+"/ArtsCombinatoriesRest/resource/"+id);
 		HttpURLConnection conn = (HttpURLConnection)url.openConnection();
 		conn.setRequestProperty("Content-Type", "application/json");
 		conn.setRequestMethod("GET");
@@ -753,7 +706,7 @@ public class Migracio {
 							    if (subjectURI.contains("events")) {
 							    	if (property.equals("http://purl.org/dc/elements/1.1/title")) {
 										event.put("Title", object1.toString());
-										event.put("about", object1.toString());
+										event.put("about", object1.asLiteral().getString());
 										//caseFile.put("Description", object1.toString());
 										//System.out.println("title" + object1.toString());
 									} else if (property.equals("http://purl.org/dc/elements/1.1/date")) {
@@ -807,7 +760,7 @@ public class Migracio {
 							    	
 							    	if (property.equals("http://purl.org/dc/elements/1.1/title")) {
 							    		currDoc.put("Title", object1.toString());
-							    		currDoc.put("about", object1.toString());
+							    		currDoc.put("about", object1.asLiteral().getString());
 							    		//System.out.println("doc-title " + object1.toString());
 							    	} else if (property.equals("http://purl.org/dc/elements/1.1/description")) {
 							    		String desc = object1.toString().replaceAll(" class=\"spip\"", "").replaceAll(" class=\"spip_out\"","");
@@ -879,9 +832,13 @@ public class Migracio {
 							objectExpedient.put(caseFileUri, idExpedient);
 						}
 						if (event.get("Title")!=null) {
-							eventExpedient.put(caseFileUri, event.get("Title")+"");
+							if (event.get("Title") instanceof String)
+								eventExpedient.put(caseFileUri, event.get("Title")+"");
+							else {
+								String[] titles = (String[])event.get("Title");
+								for (String t : titles)	eventExpedient.put(caseFileUri, t);
+							}
 						}
-						
 			    	} catch (Exception e) {
 			    		System.out.println("ERROR with event " + object.toString() + "\n");
 			    		e.printStackTrace();
@@ -988,7 +945,7 @@ public class Migracio {
 						    if (subjectURI.contains("publications") || value.startsWith("ISBN")) {
 						    	if (predicateURI.equals("http://purl.org/dc/elements/1.1/title")) {
 									publication.put("Title", value);
-									publication.put("about", value);
+									publication.put("about", object1.asLiteral().getString());
 								} else if (predicateURI.equals("http://purl.org/dc/elements/1.1/description")) {
 									publication.put("Description", value);
 								} else if (predicateURI.equals("http://www.fundaciotapies.org/terms/0.1/cover")) {
@@ -1622,13 +1579,13 @@ public class Migracio {
 						media.put("Mute", "true");
 					}
 					if (v.contains("català") || v.contains("catalán") ) {
-						media.put("hasLanguage", "Language/Catalan"); 
+						media.put("hasLanguage", "Catalan"); 
 					}
 					if (v.contains("español") || v.contains("castellano") || v.contains("castellà")) {
-						media.put("hasLanguage", "Language/Spanish");
+						media.put("hasLanguage", "Spanish");
 					}
 					if (v.contains("english") || v.contains("anglès") || v.contains("inglés")) {
-						media.put("hasLanguage", "Language/English"); 
+						media.put("hasLanguage", "English"); 
 					}
 				} 
 				
@@ -1646,7 +1603,7 @@ public class Migracio {
 					//if (caseFile.get("Description")==null)
 					//	caseFile.put("Description", r.get("títol"));
 					media.put("Title", r.get("títol"));
-					media.put("about", r.get("títol"));
+					media.put("about", r.get("títol")+"_(Video)");
 				}
 				
 				//System.out.println("Uploading Media");
@@ -1845,25 +1802,25 @@ public class Migracio {
 				if (r.get("Idioma")!=null && !"".equals(r.get("Idioma"))) {
 					String v = r.get("Idioma");
 					if (v.contains("català") || v.contains("catalán") ) {
-						media.put("hasLanguage", "Language/Catalan"); 
+						media.put("hasLanguage", "Catalan"); 
 					} 
 					if (v.contains("español") || v.contains("castellano") || v.contains("castellà")) {
-						media.put("hasLanguage", "Language/Spanish");
+						media.put("hasLanguage", "Spanish");
 					} 
 					if (v.contains("english") || v.contains("anglès") || v.contains("inglés")) {
-						media.put("hasLanguage", "Language/English"); 
+						media.put("hasLanguage", "English"); 
 					}
 					if (v.contains("àrab") || v.contains("árabe") || v.contains("arabic")) {
-						media.put("hasLanguage", "Language/Arabic"); 
+						media.put("hasLanguage", "Arabic"); 
 					}
 					if (v.contains("francès") || v.contains("francés") || v.contains("french")) {
-						media.put("hasLanguage", "Language/French"); 
+						media.put("hasLanguage", "French"); 
 					}
 					if (v.contains("alemany") || v.contains("german") || v.contains("alemán")) {
-						media.put("hasLanguage", "Language/German"); 
+						media.put("hasLanguage", "German"); 
 					}
 					if (v.contains("italià") || v.contains("italian") || v.contains("italiano")) {
-						media.put("hasLanguage", "Language/Italian"); 
+						media.put("hasLanguage", "Italian"); 
 					}
 				} 
 				
@@ -1875,7 +1832,7 @@ public class Migracio {
 					//if (caseFile.get("Description")==null)
 					//	caseFile.put("Description", r.get("títol"));
 					media.put("Title", r.get("títol"));
-					media.put("about", r.get("títol"));
+					media.put("about", r.get("títol")+"_(Audio)");
 				}
 				
 				//System.out.println("Uploading Media");
@@ -2331,6 +2288,84 @@ public class Migracio {
 			System.out.println(it.next());
 		}
 	}
+	
+	private static void migrarDadesFixes() {
+		
+		System.out.println(" ======================== MIGRACIO GENERICS ========================== ");
+		
+		try {
+		
+			String[] languages = {
+					"Catalan", "Català@ca", "Catalán@es", "Catalan@en",
+					"Italian", "Italià@ca", "Italiano@es", "Italian@en",
+					"Spanish", "Espanyol@ca", "Español@es", "Spanish@en",
+					"French", "Francès@ca", "Francés@es", "French@en",
+					"Arabic", "Àrab@ca", "Árabe@es", "Arabic@en",
+					"German", "Alemany@ca", "Alemán@es", "German@en"
+			};
+			
+			String[] kindArtWork = {
+					"Dance", "Dança@ca", "Danza@es", "Dance@en",
+					"Installation", "Instal·lació@ca", "Instalación@es", "Installation@en",
+					"Performance", "Actuació@ca", "Actuación@es", "Performance@en",
+					"Photo", "Fotografia@ca", "Fotografía@es", "Photo@en",
+					"Picture", "Pintura@ca", "Pintura@es", "Picture@en",
+					"Requiem", "Requiem@ca", "Requiem@es", "Requiem@en",
+					"Sculpture", "Escultura@ca", "Escultura@es", "Sculpture@en",
+					"Sonata", "Sonata@ca", "Sonata@es", "Sonata@en",
+					"Videoart", "Videoart@ca", "Videoart@es", "Videoart@en",
+					"Graphic", "Gràfica@ca", "Gráfica@es", "Graphic@en"
+			};
+			
+			String[] materials = {
+					"Gold", "Or@ca", "Oro@es", "Gold@en",
+					"Iron", "Acer@ca", "Acero@es", "Iron@en",
+					"Marble", "Marbre@ca", "Mármol@es", "Marble@en",
+					"Pastle", "Pastel@ca", "Pastel@es", "Pastle@en",
+					"Stone", "Pedra@ca", "Piedra@es", "Stone@en",
+					"Tempera", "Tempera@ca", "Tempera@es", "Tempera@en",
+					"Titanium", "Titani@ca", "Titanio@es", "Titanium@en",
+					"Wood", "Fusta@ca", "Madera@es", "Wood@en"
+			};
+			
+			int i=0;
+			while(i<languages.length) {
+				CustomMap lang = new CustomMap();
+				lang.put("className", "Language");
+				lang.put("about", languages[i++]);
+				lang.put("Label", languages[i++]);
+				lang.put("Label", languages[i++]);
+				lang.put("Label", languages[i++]);
+				uploadObject(lang);
+			}
+			
+			i=0;
+			while(i<kindArtWork.length) {
+				CustomMap kind = new CustomMap();
+				kind.put("className", "KindArtWork");
+				kind.put("about", kindArtWork[i++]);
+				kind.put("Label", kindArtWork[i++]);				
+				kind.put("Label", kindArtWork[i++]);
+				kind.put("Label", kindArtWork[i++]);
+				uploadObject(kind);
+			}
+			
+			i=0;
+			while(i<materials.length) {
+				CustomMap m = new CustomMap();
+				m.put("className", "Material");
+				m.put("about", materials[i++]);
+				m.put("Label", materials[i++]);
+				m.put("Label", materials[i++]);
+				m.put("Label", materials[i++]);
+				uploadObject(m);
+			}
+		
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+	}
 
 	public static void main(String[] args) throws Exception {
 		DOWNLOAD_DATA = true;
@@ -2339,21 +2374,24 @@ public class Migracio {
 		SimpleDateFormat sdf = new SimpleDateFormat("hh:mm");
 		System.out.println("Starting migration at " + sdf.format(new GregorianCalendar().getTime()));
 		
+		// ----- Migrar dades fixes				DONE
+		migrarDadesFixes();
+		
 		// ----- Migració de SPIP				DONE
 		migrarPersons(); 						
-		//migrarEvents();							
-		//migrarPublications();
-		//migrarRelations();
+		migrarEvents();							
+		migrarPublications();
+		migrarRelations();
 		
 		// ----- Migració de File-Maker			DONE
-		//migrarFileMaker1();
-		//migrarFileMaker2();
-		//migrarFileMaker3();
+		migrarFileMaker1();
+		migrarFileMaker2();
+		migrarFileMaker3();
 		
-		// ----- Migració de Media				DONE?			
-		//migrarCollections();
-		//migrarMedia();
-		//migrarImages();
+		// ----- Migració de Media				DONE
+		migrarCollections();
+		migrarMedia();
+		migrarImages();
 
 		//System.out.println(participantsNotFound);
 
@@ -2363,7 +2401,5 @@ public class Migracio {
 		//collectAgents();
 		//collectCities();
 	}
-
-	// TODO: recordar determinar el doctype documentation en els events
 
 }
