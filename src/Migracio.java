@@ -2056,7 +2056,7 @@ public class Migracio {
 			if (c[0].equals(codiCol)) {
 				CustomMap media = getObject(objectId);
 				media.put("isCollectedIn", c[2]);
-				media.put("uri", uri);
+				media.put("Uri", uri);
 				updateObject(objectId, media);
 				break;
 			}
@@ -2317,7 +2317,7 @@ public class Migracio {
 					"Graphic", "Gràfica@ca", "Gráfica@es", "Graphic@en"
 			};
 			
-			String[] materials = {
+			/*String[] materials = {
 					"Gold", "Or@ca", "Oro@es", "Gold@en",
 					"Iron", "Acer@ca", "Acero@es", "Iron@en",
 					"Marble", "Marbre@ca", "Mármol@es", "Marble@en",
@@ -2326,7 +2326,7 @@ public class Migracio {
 					"Tempera", "Tempera@ca", "Tempera@es", "Tempera@en",
 					"Titanium", "Titani@ca", "Titanio@es", "Titanium@en",
 					"Wood", "Fusta@ca", "Madera@es", "Wood@en"
-			};
+			};*/
 			
 			int i=0;
 			while(i<languages.length) {
@@ -2350,7 +2350,7 @@ public class Migracio {
 				uploadObject(kind);
 			}
 			
-			i=0;
+			/*i=0;
 			while(i<materials.length) {
 				CustomMap m = new CustomMap();
 				m.put("className", "Material");
@@ -2359,7 +2359,7 @@ public class Migracio {
 				m.put("Label", materials[i++]);
 				m.put("Label", materials[i++]);
 				uploadObject(m);
-			}
+			}*/
 		
 		} catch (Exception e) {
 			e.printStackTrace();
