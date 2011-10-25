@@ -12,6 +12,7 @@ import java.net.URL;
 import java.net.URLEncoder;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -239,6 +240,27 @@ public class Migracio {
 		return null;
 	}
 	
+	private static void esborraTot() throws Exception {
+		SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yy kk:mm");
+		String confirm = URLEncoder.encode(sdf.format(Calendar.getInstance().getTime()), "UTF-8");
+		URL url = new URL("http://"+hostport+"/ArtsCombinatoriesRest/clear?confirm="+confirm);
+		HttpURLConnection conn = (HttpURLConnection)url.openConnection();
+		conn.setRequestProperty("Content-Type", "application/json");
+		conn.setRequestMethod("GET");
+		
+		BufferedReader rd = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+	    String str;
+	    StringBuffer sb = new StringBuffer();
+	    while ((str = rd.readLine()) != null) {
+	    	sb.append(str);
+	    }
+
+	    rd.close();
+	    conn.disconnect();
+	    
+	    if ("error".equals(sb)) throw new Exception("Server Error esborrant-ho tot!");
+	}
+	
 	private static String updateObject(String id, CustomMap data) throws Exception {
 		//System.out.println("Migrating data: id=" + id + " " + data);
 		if (data==null) return null;
@@ -445,11 +467,11 @@ public class Migracio {
 										data.put("givenName", object1.toString().trim());
 										//System.out.println("name " + object1.toString());
 									} else if (content.equals("http://xmlns.com/foaf/0.1/familyName")) {
-										data.put("lastName", object1.toString().trim());
+										data.put("familyName", object1.toString().trim());
 										//System.out.println("surname " + object1.toString());
 									} else if (content.equals("http://purl.org/vocab/bio/0.1/biography")) {
 										String bio = object1.toString().replaceAll(" class=\"spip\"", "").replaceAll(" class=\"spip_out\"","");	
-										data.put("CV", bio);
+										data.put("Bio", bio);
 										//System.out.println("CV " + bio);
 									} else if (content.equals("http://purl.org/vocab/bio/0.1/date")) {
 										data.put("BirthDate", object1.toString());
@@ -460,7 +482,7 @@ public class Migracio {
 						}
 						
 						//System.out.println("Uploading person...");
-						String fullName = ((data.get("givenName")!=null?data.get("givenName")+" ":"") + (data.get("lastName")!=null?data.get("lastName"):"")).trim();
+						String fullName = ((data.get("givenName")!=null?data.get("givenName")+" ":"") + (data.get("familyName")!=null?data.get("familyName"):"")).trim();
 						data.put("about", fullName);
 						String agentUri = uploadObject(data);
 						backupAgents.put(fullName, agentUri);
@@ -572,14 +594,14 @@ public class Migracio {
 						names = searchCityCountry(foundName, l);
 						
 						if (names!=null) {
-							city.put("firstName", names[1]+"@"+l);
+							city.put("Name", names[1]+"@"+l);
 							city.put("about", names[1]);
 							cn.add(names[1]);
 							tmp = names[0];
-							country.put("firstName", names[0]+"@"+l);
+							country.put("Name", names[0]+"@"+l);
 							country.put("about", names[0]);
 						} else {
-							city.put("firstName", foundName+"@"+l);
+							city.put("Name", foundName+"@"+l);
 						}
 					}
 					
@@ -1013,7 +1035,7 @@ public class Migracio {
 									    String value1 = object11.toString();
 									    
 									    if (predicateURI1.equals("http://www.fundaciotapies.org/terms/0.1/name")) {
-									    	currEditor.put("firstName", value1.trim());
+									    	currEditor.put("Name", value1.trim());
 									    } else if (predicateURI1.equals("http://www.fundaciotapies.org/terms/0.1/url")) {
 									    	currEditor.put("Homepage", value1);
 									    } else if (predicateURI1.equals("http://www.fundaciotapies.org/terms/0.1/location")) {
@@ -1072,7 +1094,7 @@ public class Migracio {
 									    String value1 = object11.toString();
 									    
 									    if (predicateURI1.equals("http://www.fundaciotapies.org/terms/0.1/name")) {
-									    	currDistr.put("firstName", value1);
+									    	currDistr.put("Name", value1);
 									    } else if (predicateURI1.equals("http://www.fundaciotapies.org/terms/0.1/url")) {
 									    	currDistr.put("Homepage", value1);
 									    } else if (predicateURI1.equals("http://www.fundaciotapies.org/terms/0.1/location")) {
@@ -1101,12 +1123,12 @@ public class Migracio {
 							if (e.get("date")!=null) role.put("Date", e.get("date"));
 							String roleuri = uploadObject(role);
 							
-							String orguri = addedOrganizations.get(e.get("firstName"));
+							String orguri = addedOrganizations.get(e.get("Name"));
 							if (orguri==null) {
 								e.put("performsRole", roleuri);
-								e.put("about", e.get("firstName"));
+								e.put("about", e.get("Name"));
 								orguri = uploadObject(new CustomMap(e));
-								addedOrganizations.put(e.get("firstName"), orguri);
+								addedOrganizations.put(e.get("Name"), orguri);
 							} else {
 								CustomMap org = getObject(orguri);
 								org.put("performsRole", roleuri);
@@ -1122,12 +1144,12 @@ public class Migracio {
 							role.put("appliesOn", puri);
 							String roleuri = uploadObject(role);
 							
-							String orguri = addedOrganizations.get(d.get("firstName"));
+							String orguri = addedOrganizations.get(d.get("Name"));
 							if (orguri==null) {
 								d.put("performsRole", roleuri);
-								d.put("about", d.get("firstName"));
+								d.put("about", d.get("Name"));
 								orguri = uploadObject(new CustomMap(d));
-								addedOrganizations.put(d.get("firstName"), orguri);
+								addedOrganizations.put(d.get("Name"), orguri);
 							} else {
 								CustomMap org = getObject(orguri);
 								org.put("performsRole", roleuri);
@@ -1490,7 +1512,7 @@ public class Migracio {
 									l = find("givenName", p, "Person");
 									if (l.size()==0) l = find("givenName", p.split(" ")[0], "Person");
 								} else {
-									l = find("firstName", p, "Organisation");
+									l = find("Name", p, "Organisation");
 								}
 								
 								if (l.size()==0) {
@@ -1499,11 +1521,11 @@ public class Migracio {
 										String[] fname = p.split(" ");
 										agent.put("className", "Person");
 										agent.put("givenName", fname[0]);
-										if (fname.length>1)	agent.put("lastName", p.replace(fname[0]+" ", ""));
+										if (fname.length>1)	agent.put("familyName", p.replace(fname[0]+" ", ""));
 										agent.put("about", fname[0]);
 									} else {
 										agent.put("className", "Organisation");
-										agent.put("firstName", p);
+										agent.put("Name", p);
 										agent.put("about", p);
 									}
 									
@@ -1541,7 +1563,7 @@ public class Migracio {
 									l = find("givenName", p, "Person");
 									if (l.size()==0) l = find("givenName", p.split(" ")[0], "Person");
 								} else {
-									l = find("firstName", p, "Organisation");
+									l = find("Name", p, "Organisation");
 								}
 
 								if (l.size()==0) {
@@ -1551,10 +1573,10 @@ public class Migracio {
 										agent.put("className", "Person");
 										agent.put("givenName", fname[0]);
 										agent.put("about", fname[0]);
-										if (fname.length>1)	agent.put("lastName", p.replace(fname[0]+" ", ""));
+										if (fname.length>1)	agent.put("familyName", p.replace(fname[0]+" ", ""));
 									} else {
 										agent.put("className", "Organisation");
-										agent.put("firstName", p);
+										agent.put("Name", p);
 										agent.put("about", p);
 									}	 
 									
@@ -1736,13 +1758,13 @@ public class Migracio {
 						String uri = null;
 						uri = backupAgents.get(p);
 						if (uri==null) {
-							List<String> l = find("Person".equals(pt)?"givenName":"firstName", p, pt);
+							List<String> l = find("Person".equals(pt)?"givenName":"Name", p, pt);
 							
 							if (l.size()==0) {
 								CustomMap agent = new CustomMap();
 								
 								agent.put("className", pt);
-								agent.put("Person".equals(pt)?"givenName":"firstName", p);
+								agent.put("Person".equals(pt)?"givenName":"Name", p);
 								agent.put("about", p);
 								uri = uploadObject(agent);
 								backupAgents.put(p, uri);
@@ -1767,12 +1789,12 @@ public class Migracio {
 					uri = backupAgents.get(p);
 					
 					if (uri==null) {
-						List<String> l = find("firstName", p, "Organisation");
+						List<String> l = find("Name", p, "Organisation");
 						
 						if (l.size()==0) {
 							CustomMap agent = new CustomMap();
 							agent.put("className", "Organisation");
-							agent.put("firstName", p);
+							agent.put("Name", p);
 							agent.put("about", p);
 							uri = uploadObject(agent);
 							backupAgents.put(p, uri);
@@ -1980,12 +2002,12 @@ public class Migracio {
 								String uri = backupAgents.get(p);
 								
 								if (uri==null) {
-									List<String> l = find("firstName", p, "Organisation");
+									List<String> l = find("Name", p, "Organisation");
 									
 									if (l.size()==0) {
 										CustomMap agent = new CustomMap();
 										agent.put("className", "Organisation");
-										agent.put("firstName", p);
+										agent.put("Name", p);
 										agent.put("about", p);
 										uri = uploadObject(agent);
 										backupAgents.put(p, uri);
@@ -2374,6 +2396,8 @@ public class Migracio {
 		SimpleDateFormat sdf = new SimpleDateFormat("hh:mm");
 		System.out.println("Starting migration at " + sdf.format(new GregorianCalendar().getTime()));
 		
+		esborraTot();
+		
 		// ----- Migrar dades fixes				DONE
 		migrarDadesFixes();
 		
@@ -2401,5 +2425,7 @@ public class Migracio {
 		//collectAgents();
 		//collectCities();
 	}
+
+
 
 }
