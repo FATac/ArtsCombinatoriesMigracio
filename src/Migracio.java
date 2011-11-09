@@ -200,7 +200,7 @@ public class Migracio {
 	
 	private static String uploadObject(CustomMap data) throws Exception {
 		if (data==null) return null;
-		if (data.get("className")==null) {
+		if (data.get("type")==null) {
 			System.exit(0);
 		}
 		//System.out.println("Migrating data: " + data);
@@ -208,7 +208,7 @@ public class Migracio {
 			URL url = new URL("http://"+hostport+"/ArtsCombinatoriesRest/resource/upload");
 		    HttpURLConnection conn = (HttpURLConnection)url.openConnection();
 		    conn.setRequestProperty("Content-Type", "application/json");
-		    conn.setRequestMethod("POST");
+		    conn.setRequestMethod("PUT");
 		    conn.setDoOutput(true);
 		    OutputStreamWriter wr = new OutputStreamWriter(conn.getOutputStream());
 		    wr.write(new Gson().toJson(data));
@@ -240,10 +240,10 @@ public class Migracio {
 		return null;
 	}
 	
-	private static void esborraTot() throws Exception {
+	private static void reseteja() throws Exception {
 		SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yy kk:mm");
 		String confirm = URLEncoder.encode(sdf.format(Calendar.getInstance().getTime()), "UTF-8");
-		URL url = new URL("http://"+hostport+"/ArtsCombinatoriesRest/clear?confirm="+confirm);
+		URL url = new URL("http://"+hostport+"/ArtsCombinatoriesRest/reset?confirm="+confirm);
 		HttpURLConnection conn = (HttpURLConnection)url.openConnection();
 		conn.setRequestProperty("Content-Type", "application/json");
 		conn.setRequestMethod("GET");
@@ -444,7 +444,7 @@ public class Migracio {
 						CustomMap data = new CustomMap();
 						String fatacId = url.substring(url.indexOf("id_article=")+11);
 						data.put("FatacId", fatacId );
-						data.put("className", "Person");
+						data.put("type", "Person");
 						//System.out.println("FatacId " + fatacId);
 						
 						//System.out.println("Reading person...");
@@ -484,6 +484,7 @@ public class Migracio {
 						//System.out.println("Uploading person...");
 						String fullName = ((data.get("givenName")!=null?data.get("givenName")+" ":"") + (data.get("familyName")!=null?data.get("familyName"):"")).trim();
 						data.put("about", fullName);
+						data.put("Name", fullName);
 						String agentUri = uploadObject(data);
 						backupAgents.put(fullName, agentUri);
 
@@ -582,9 +583,9 @@ public class Migracio {
 				
 				if (uri==null) {
 					CustomMap country = new CustomMap();
-					country.put("className", "Country");
+					country.put("type", "Country");
 					CustomMap city = new CustomMap();
-					city.put("className", "City");
+					city.put("type", "City");
 					
 					String countryUri = null;
 					List<String> cn = new ArrayList<String>();
@@ -697,9 +698,9 @@ public class Migracio {
 						
 						StmtIterator it2 = model1.listStatements();
 						CustomMap event = new CustomMap();
-						event.put("className", "FrameActivity");
+						event.put("type", "FrameActivity");
 						CustomMap caseFile = new CustomMap();
-						caseFile.put("className", "CulturalManagement");
+						caseFile.put("type", "CulturalManagement");
 						
 						String fatacId = url.substring(url.indexOf("id_article=")+11);
 						event.put("FatacId", fatacId );
@@ -760,16 +761,16 @@ public class Migracio {
 							    			} else if (((String)currDoc.get("doctype")).startsWith("Introduction") || ((String)currDoc.get("doctype")).startsWith("Activity")) {
 							    				event.put("Description", currDoc.get("Description"));
 							    			} else if (((String)currDoc.get("doctype")).startsWith("List of works")) {
-							    				currDoc.put("className", "Text");	// TODO: check whether set class is correct
+							    				currDoc.put("type", "Text");	// TODO: check whether set class is correct
 							    				documents.put(lastDocument, currDoc);
 							    			} else if (((String)currDoc.get("doctype")).startsWith("Documentation")) {
-							    				currDoc.put("className", "Text");	// TODO: check whether set class is correct
+							    				currDoc.put("type", "Text");	// TODO: check whether set class is correct
 							    				documents.put(lastDocument, currDoc);
 							    			} else if (((String)currDoc.get("doctype")).startsWith("Collection")) {
 							    				// no action
 							    			} else if (((String)currDoc.get("doctype")).startsWith("Event")) {
 							    				currDoc.put("FatacId", lastDocument );
-							    				currDoc.put("className", "SpecificActivity");
+							    				currDoc.put("type", "SpecificActivity");
 							    				specificEvents.put(lastDocument, currDoc);
 							    			}
 							    		}
@@ -812,16 +813,16 @@ public class Migracio {
 			    			} else if (((String)currDoc.get("doctype")).startsWith("Introduction") || ((String)currDoc.get("doctype")).startsWith("Activity")) {
 			    				event.put("Description", currDoc.get("Description"));
 			    			} else if ("List of works".equals(currDoc.get("doctype"))) {
-			    				currDoc.put("className", "Text"); // TODO: check whether set class is correct
+			    				currDoc.put("type", "Text"); // TODO: check whether set class is correct
 			    				documents.put(lastDocument, currDoc);
 			    			} else if ("Documentation".equals(currDoc.get("doctype"))) {
-			    				currDoc.put("className", "Text"); // TODO: check whether set class is correct
+			    				currDoc.put("type", "Text"); // TODO: check whether set class is correct
 			    				documents.put(lastDocument, currDoc);
 			    			} else if ("Collection".equals(currDoc.get("doctype"))) {
 			    				// no action
 			    			} else if ("Event".equals(currDoc.get("doctype"))) {
 			    				currDoc.put("FatacId", lastDocument );
-			    				currDoc.put("className", "SpecificActivity");
+			    				currDoc.put("type", "SpecificActivity");
 			    				specificEvents.put(lastDocument, currDoc);
 			    			}
 						}
@@ -936,7 +937,7 @@ public class Migracio {
 						
 						StmtIterator it2 = model1.listStatements();
 						CustomMap publication = new CustomMap();
-						publication.put("className", "Publication");
+						publication.put("type", "Publication");
 						
 						String fatacId = url.substring(url.indexOf("id=")+3);
 						publication.put("FatacId", fatacId );
@@ -993,7 +994,7 @@ public class Migracio {
 						    		if (editorLastId!=null)	editorsList.add(currEditor);
 						    		editorLastId = subjectURI;
 						    		currEditor = new HashMap<String, String>();
-						    		currEditor.put("className", "Organisation");
+						    		currEditor.put("type", "Organisation");
 						    	}
 						    	
 						    	if (predicateURI.equals("http://purl.org/dc/elements/1.1/date")) {
@@ -1053,7 +1054,7 @@ public class Migracio {
 						    		if (distrLastId!=null)	distributorsList.add(currDistr);
 						    		distrLastId = subjectURI;
 						    		currDistr = new HashMap<String, String>();
-						    		currDistr.put("className", "Organisation");
+						    		currDistr.put("type", "Organisation");
 						    	}
 						    	
 						    	if (predicateURI.equals("http://www.fundaciotapies.org/terms/0.1/id")) {
@@ -1118,7 +1119,7 @@ public class Migracio {
 						//System.out.println("Uploading publication editors...");
 						for(Map<String, String> e : editorsList) {
 							CustomMap role = new CustomMap();
-							role.put("className","Editor");
+							role.put("type","Editor");
 							role.put("appliesOn", puri);
 							if (e.get("date")!=null) role.put("Date", e.get("date"));
 							String roleuri = uploadObject(role);
@@ -1140,7 +1141,7 @@ public class Migracio {
 						//System.out.println("Uploading publication distributors...");
 						for(Map<String, String> d : distributorsList) {
 							CustomMap role = new CustomMap();
-							role.put("className","Publisher");
+							role.put("type","Publisher");
 							role.put("appliesOn", puri);
 							String roleuri = uploadObject(role);
 							
@@ -1262,10 +1263,6 @@ public class Migracio {
 				CustomMap event1 = getObject(sid1);
 				event1.put("continuesTo", sid2);
 				updateObject(sid1, event1);
-				
-				CustomMap event2 = getObject(sid2);
-				event2.put("comesFrom", sid1);
-				updateObject(sid2, event2);
 			}
 			
 		} else if (type1.equals("ft:participant_id") && type2.equals("ft:event_id")) {
@@ -1284,7 +1281,7 @@ public class Migracio {
 			if (roleName.contains("Collection")) roleName = "Cataloguer";
 			
 			CustomMap role = new CustomMap();
-			role.put("className", roleName);
+			role.put("type", roleName);
 			role.put("appliesOn", sid2);
 			String sid3 = uploadObject(role);
 			
@@ -1306,7 +1303,7 @@ public class Migracio {
 			String roleName = getRoleName(roleId);
 			
 			CustomMap role = new CustomMap();
-			role.put("className", roleName);
+			role.put("type", roleName);
 			role.put("appliesOn", sid2);
 			String sid3 = uploadObject(role);
 			
@@ -1319,7 +1316,7 @@ public class Migracio {
 			String roleName = getRoleName(roleId);
 			
 			CustomMap role = new CustomMap();
-			role.put("className", roleName);
+			role.put("type", roleName);
 			role.put("appliesOn", sid2);
 			String sid3 = uploadObject(role);
 			
@@ -1450,7 +1447,7 @@ public class Migracio {
 				}
 				
 				CustomMap media = new CustomMap();
-				media.put("className", "Video");
+				media.put("type", "Video");
 				
 				List<String> agentProductor = new ArrayList<String>();
 				List<String> agentRealitzador = new ArrayList<String>();
@@ -1519,12 +1516,14 @@ public class Migracio {
 									CustomMap agent = new CustomMap();
 									if ("p".equals(t)) {
 										String[] fname = p.split(" ");
-										agent.put("className", "Person");
+										agent.put("type", "Person");
 										agent.put("givenName", fname[0]);
 										if (fname.length>1)	agent.put("familyName", p.replace(fname[0]+" ", ""));
-										agent.put("about", fname[0]);
+										String fullName = agent.get("givenName") + (agent.get("familyName")!=null?" "+agent.get("familyName"):"");
+										agent.put("about", fullName);
+										agent.put("Name", fullName);
 									} else {
-										agent.put("className", "Organisation");
+										agent.put("type", "Organisation");
 										agent.put("Name", p);
 										agent.put("about", p);
 									}
@@ -1570,12 +1569,14 @@ public class Migracio {
 									CustomMap agent = new CustomMap();
 									if ("p".equals(t)) {
 										String[] fname = p.split(" ");
-										agent.put("className", "Person");
+										agent.put("type", "Person");
 										agent.put("givenName", fname[0]);
-										agent.put("about", fname[0]);
 										if (fname.length>1)	agent.put("familyName", p.replace(fname[0]+" ", ""));
+										String fullName = agent.get("givenName") + (agent.get("familyName")!=null?" "+agent.get("familyName"):"");
+										agent.put("about", fullName);
+										agent.put("Name", fullName);
 									} else {
-										agent.put("className", "Organisation");
+										agent.put("type", "Organisation");
 										agent.put("Name", p);
 										agent.put("about", p);
 									}	 
@@ -1625,7 +1626,7 @@ public class Migracio {
 					//if (caseFile.get("Description")==null)
 					//	caseFile.put("Description", r.get("títol"));
 					media.put("Title", r.get("títol"));
-					media.put("about", r.get("títol")+"_(Video)");
+					media.put("about", r.get("títol"));
 				}
 				
 				//System.out.println("Uploading Media");
@@ -1640,7 +1641,7 @@ public class Migracio {
 				if (eventUri!=null) {
 					for(String id : agentProductor) {
 						CustomMap role = new CustomMap();
-						role.put("className", "Producer");
+						role.put("type", "Producer");
 						role.put("appliesOn", eventUri);
 						String roleUri = uploadObject(role);
 						
@@ -1651,7 +1652,7 @@ public class Migracio {
 					
 					for(String id : agentRealitzador) {
 						CustomMap role = new CustomMap();
-						role.put("className", "Film-maker");
+						role.put("type", "Film-maker");
 						role.put("appliesOn", eventUri);
 						String roleUri = uploadObject(role);
 						
@@ -1710,11 +1711,8 @@ public class Migracio {
 					caseFileUri = null;
 				}
 				
-				CustomMap lang = new CustomMap();
-				lang.put("className", "Language");
-				
 				CustomMap media = new CustomMap();
-				media.put("className", "Audio");
+				media.put("type", "Audio");
 				
 				List<String> agentAutor = new ArrayList<String>();
 				List<String> agentProductor = new ArrayList<String>();
@@ -1763,9 +1761,10 @@ public class Migracio {
 							if (l.size()==0) {
 								CustomMap agent = new CustomMap();
 								
-								agent.put("className", pt);
-								agent.put("Person".equals(pt)?"givenName":"Name", p);
+								agent.put("type", pt);
+								if ("Person".equals(pt)) agent.put("givenName", p);
 								agent.put("about", p);
+								agent.put("Name", p);
 								uri = uploadObject(agent);
 								backupAgents.put(p, uri);
 							} else {
@@ -1793,7 +1792,7 @@ public class Migracio {
 						
 						if (l.size()==0) {
 							CustomMap agent = new CustomMap();
-							agent.put("className", "Organisation");
+							agent.put("type", "Organisation");
 							agent.put("Name", p);
 							agent.put("about", p);
 							uri = uploadObject(agent);
@@ -1854,7 +1853,7 @@ public class Migracio {
 					//if (caseFile.get("Description")==null)
 					//	caseFile.put("Description", r.get("títol"));
 					media.put("Title", r.get("títol"));
-					media.put("about", r.get("títol")+"_(Audio)");
+					media.put("about", r.get("títol"));
 				}
 				
 				//System.out.println("Uploading Media");
@@ -1869,7 +1868,7 @@ public class Migracio {
 				if (eventUri!=null) {
 					for(String id : agentProductor) {
 						CustomMap role = new CustomMap();
-						role.put("className", "Producer");
+						role.put("type", "Producer");
 						role.put("appliesOn", eventUri);
 						String roleUri = uploadObject(role);
 						
@@ -1880,7 +1879,7 @@ public class Migracio {
 					
 					for(String id : agentAutor) {
 						CustomMap role = new CustomMap();
-						role.put("className", "Lecturer");
+						role.put("type", "Lecturer");
 						role.put("appliesOn", eventUri);
 						String roleUri = uploadObject(role);
 						
@@ -1903,7 +1902,9 @@ public class Migracio {
 		}
 	}
 	
-	// TODO: relacionar ArtWorks i Case-Files
+	private static CustomMap imagesExpedient = new CustomMap();
+	private static Map<String, String> workExpedient = new HashMap<String, String>();
+	
 	private static void migrarFileMaker3() {
 		System.out.println(" ======================== MIGRACIO FILEMAKER 3 ========================== ");
 		
@@ -1911,13 +1912,45 @@ public class Migracio {
 			CsvReader r = new CsvReader(new FileReader(new File("./fm/SF-MASER-COLLECIO.csv")));
 			r.readHeaders();
 			
+			String lastWork = null;
+			String currentWork = null;
+			CustomMap work = null;
+			List<String> editorList = null;
+			String[] nt = null;
+			
 			while (r.readRecord()) {
-				CustomMap work = new CustomMap();
-				work.put("className", "AT_Work_FAT_Collection");
-				List<String> editorList = new ArrayList<String>();
+				if (r.get("Títol")!=null && !"".equals(r.get("Títol"))) {
+					currentWork = r.get("Títol").trim();
+					if (!currentWork.equals(lastWork)) {
+						if (work!=null) {
+							work.put("Title", currentWork+"@ca");
+							work.put("about", currentWork);
+							work.put("type", "AT_Work_FAT_Collection");
+							
+							String wri = uploadObject(work);
+							
+							if (nt!=null) {
+								CustomMap exp = new CustomMap();
+								exp.put("type", "ProtectionPromotionAT");
+								exp.put("references", wri);
+								String expUri = uploadObject(exp);
+								
+								for (String n : nt) imagesExpedient.put(expUri, n);
+								workExpedient.put(expUri, wri);
+							}
+						}
+						
+						work = new CustomMap();
+						editorList = new ArrayList<String>();
+						nt  = null;
+					}
+					
+					lastWork = currentWork;
+				}
 				
 				if (r.get("Núm. fotog.")!=null && !"".equals(r.get("Núm. fotog."))) {
-					work.put("NumberT", r.get("Núm. fotog."));
+					nt = r.get("Núm. fotog.").split("[\\s\\n\\/]+");
+					for (String n : nt)	work.put("NumberT", nt);
 				}
 				if (r.get("Nombre d'exemplars")!=null && !"".equals(r.get("Nombre d'exemplars"))) {
 					work.put("NumberofCopies", r.get("Nombre d'exemplars"));
@@ -1949,10 +1982,10 @@ public class Migracio {
 					work.put("measurement", r.get("Mides").trim());
 				}
 				if (r.get("obra gràfica =")!=null && !"".equals(r.get("obra gràfica ="))) {
-					work.put("hasType", "KindArtWork/Graphic");
+					work.put("hasType", "Graphic");
 				}
 				if (r.get("obra original =")!=null && !"".equals(r.get("obra original ="))) {
-					work.put("hasType", "KindArtWork/Original");
+					work.put("hasType", "Original");
 				}
 				if (r.get("préstec a :")!=null && !"".equals(r.get("préstec a :"))) {
 					// TODO: pocs registres i poc automatitzable: MANUALMENT
@@ -1971,10 +2004,6 @@ public class Migracio {
 				if (r.get("trad.français technique:")!=null && !"".equals(r.get("trad.français technique:"))) {
 					work.put("Technique", r.get("trad.français technique:").trim()+"@fr");
 				}
-				if (r.get("Títol")!=null && !"".equals(r.get("Títol"))) {
-					work.put("Title", r.get("Títol").trim()+"@ca");
-					work.put("about", r.get("Títol").trim());
-				}
 				if (r.get("trad. castellano")!=null && !"".equals(r.get("trad. castellano"))) {
 					work.put("Title", r.get("trad. castellano").trim()+"@es");
 				}
@@ -1989,7 +2018,24 @@ public class Migracio {
 					work.put("EstimatedValue", Math.round(Math.abs(d)) +  " Euro.");
 				}
 				if (r.get("Edició")!=null && !"".equals(r.get("Edició"))) {
-					work.put("className", "Publication");
+					CustomMap pub = new CustomMap();
+					pub.put("type", "Publication");
+					String editorUri = null;
+					
+					if (r.get("Impressor")!=null && !"".equals(r.get("Impressor"))) {
+						if (r.get("Mides planxa")!=null && !"".equals(r.get("Mides planxa"))) {
+							pub.put("SheetSize", r.get("Mides planxa").trim());
+						}
+						if (r.get("Tiratge")!=null && !"".equals(r.get("Tiratge"))) {
+							pub.put("Circulation", r.get("Tiratge").trim());
+						}
+						if (r.get("Núm. planxes")!=null && !"".equals(r.get("Núm. planxes"))) {
+							pub.put("SheetNumber", r.get("Núm. planxes").trim());
+						}
+						if (r.get("Filigrana")!=null && !"".equals(r.get("Filigrana"))) {
+							pub.put("Watermark", r.get("Filigrana").trim());
+						}
+					}
 					
 					if (r.get("Editor")!=null && !"".equals(r.get("Editor"))) {
 						String[] editors = searchAgent(r.get("Editor"));
@@ -1999,56 +2045,36 @@ public class Migracio {
 								int idx = panoramix.indexOf("___");
 								String p = panoramix.substring(0, idx);
 								
-								String uri = backupAgents.get(p);
+								editorUri = backupAgents.get(p);
 								
-								if (uri==null) {
+								if (editorUri==null) {
 									List<String> l = find("Name", p, "Organisation");
 									
 									if (l.size()==0) {
 										CustomMap agent = new CustomMap();
-										agent.put("className", "Organisation");
+										agent.put("type", "Organisation");
 										agent.put("Name", p);
 										agent.put("about", p);
-										uri = uploadObject(agent);
-										backupAgents.put(p, uri);
+										editorUri = uploadObject(agent);
+										backupAgents.put(p, editorUri);
 									} else {
-										uri = l.get(0); 
+										editorUri = l.get(0); 
 									}	
 								}
-								
-								editorList.add(uri);
 							}
 						}
 					}
 					
-					if (r.get("Impressor")!=null && !"".equals(r.get("Impressor"))) {
-						work.put("className", "Publication");
-						
-						if (r.get("Mides planxa")!=null && !"".equals(r.get("Mides planxa"))) {
-							work.put("SheetSize", r.get("Mides planxa").trim());
-						}
-						if (r.get("Tiratge")!=null && !"".equals(r.get("Tiratge"))) {
-							work.put("Circulation", r.get("Tiratge").trim());
-						}
-						if (r.get("Núm. planxes")!=null && !"".equals(r.get("Núm. planxes"))) {
-							work.put("SheetNumber", r.get("Núm. planxes").trim());
-						}
-						if (r.get("Filigrana")!=null && !"".equals(r.get("Filigrana"))) {
-							work.put("Watermark", r.get("Filigrana").trim());
-						}
-					}
-				}
-				
-				String puburi = uploadObject(work);
-				for (String e : editorList) {
+					String puburi = uploadObject(pub);
+					
 					CustomMap role = new CustomMap();
-					role.put("className", "Editor");
+					role.put("type", "Editor");
 					role.put("appliesOn", puburi);
 					String roleUri = uploadObject(role);
 					
-					CustomMap editor = getObject(e);
+					CustomMap editor = getObject(editorUri);
 					editor.put("performsRole", roleUri);
-					updateObject(e, editor);
+					updateObject(editorUri, editor);
 				}
 			}
 			r.close();
@@ -2158,7 +2184,7 @@ public class Migracio {
 		}
 	}
 	
-	private static void migrarImages() {
+	private static void migrarImages1() {
 		System.out.println(" ======================== MIGRACIO IMAGES ========================== ");
 		
 		//List<String> llistaFitxersMedia = getMediaList("BANC D'IMATGES HISTÒRIC"); TODO set path
@@ -2177,7 +2203,7 @@ public class Migracio {
 					int idx2 = fn.indexOf(codiExp+"_");
 					if (idx!=-1) {
 						CustomMap image = new CustomMap();
-						image.put("className", "Image");
+						image.put("type", "Image");
 						String fn2 = fn.substring(idx);
 						
 						putImageData(image, fn, fn2);
@@ -2195,10 +2221,10 @@ public class Migracio {
 						String fn2 = fn.substring(idx2);
 						
 						if (fn.endsWith(".tif") || fn.endsWith(".jpg")) {
-							media.put("className", "Image");
+							media.put("type", "Image");
 							putImageData(media, fn, fn2);
 						} else if (fn.endsWith(".pdf") || fn.endsWith(".doc") || fn.endsWith(".rtf")) {
-							media.put("className", "Text");
+							media.put("type", "Text");
 						} else continue;
 						
 						String fileuri = uploadObjectFile(fn);
@@ -2216,6 +2242,53 @@ public class Migracio {
 			e.printStackTrace();
 		}
 	}
+	
+	private static void migrarImages2() {
+		List<String> llistaFitxersMedia = getMediaList("/home/jordi.roig.prieto/PROVA_MIGRACIO_MEDIA");
+		
+		//System.out.println(objectExpedient);
+		
+		try {
+			Set<Map.Entry<String, Object>> ent = imagesExpedient.entrySet();
+			for (Map.Entry<String, Object> e : ent) {
+				String uriExp = e.getKey();
+				Object codiImg = e.getValue();
+				
+				String[] codis = null;
+				if (codiImg instanceof String)
+					codis = new String[]{ (String)codiImg };
+				else 
+					codis = (String[])codis;
+				
+				for (String fn : llistaFitxersMedia) {
+					for (String c : codis) {
+						int idx = fn.indexOf(c);
+						if (idx!=-1) {
+							CustomMap image = new CustomMap();
+							image.put("type", "Image");
+							String fn2 = fn.substring(idx);
+							
+							putImageData(image, fn, fn2);
+							
+							String fileuri = uploadObjectFile(fn);
+							
+							String workUri = workExpedient.get(uriExp);
+							if (workUri!=null) image.put("represents", workUri);
+							image.put("Uri", fileuri);
+							String imageuri = uploadObject(image);
+							
+							CustomMap exp = getObject(uriExp);
+							exp.put("hasMedia", imageuri);
+							updateObject(uriExp, exp);
+						}
+					}
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+		
 	
 	private static String[][] collectionList = {
 	
@@ -2257,7 +2330,7 @@ public class Migracio {
 			int idx = 0;
 			while(idx<collectionList.length) {
 				CustomMap collection = new CustomMap();
-				collection.put("className", collectionList[idx][3]);
+				collection.put("type", collectionList[idx][3]);
 				collection.put("Title", collectionList[idx][1]);
 				collection.put("about", collectionList[idx][1]);
 				String uri = uploadObject(collection);
@@ -2312,7 +2385,6 @@ public class Migracio {
 	}
 	
 	private static void migrarDadesFixes() {
-		
 		System.out.println(" ======================== MIGRACIO GENERICS ========================== ");
 		
 		try {
@@ -2353,7 +2425,7 @@ public class Migracio {
 			int i=0;
 			while(i<languages.length) {
 				CustomMap lang = new CustomMap();
-				lang.put("className", "Language");
+				lang.put("type", "Language");
 				lang.put("about", languages[i++]);
 				lang.put("Label", languages[i++]);
 				lang.put("Label", languages[i++]);
@@ -2364,7 +2436,7 @@ public class Migracio {
 			i=0;
 			while(i<kindArtWork.length) {
 				CustomMap kind = new CustomMap();
-				kind.put("className", "KindArtWork");
+				kind.put("type", "KindArtWork");
 				kind.put("about", kindArtWork[i++]);
 				kind.put("Label", kindArtWork[i++]);				
 				kind.put("Label", kindArtWork[i++]);
@@ -2375,7 +2447,7 @@ public class Migracio {
 			/*i=0;
 			while(i<materials.length) {
 				CustomMap m = new CustomMap();
-				m.put("className", "Material");
+				m.put("type", "Material");
 				m.put("about", materials[i++]);
 				m.put("Label", materials[i++]);
 				m.put("Label", materials[i++]);
@@ -2396,7 +2468,7 @@ public class Migracio {
 		SimpleDateFormat sdf = new SimpleDateFormat("hh:mm");
 		System.out.println("Starting migration at " + sdf.format(new GregorianCalendar().getTime()));
 		
-		esborraTot();
+		reseteja();
 		
 		// ----- Migrar dades fixes				DONE
 		migrarDadesFixes();
@@ -2415,9 +2487,8 @@ public class Migracio {
 		// ----- Migració de Media				DONE
 		migrarCollections();
 		migrarMedia();
-		migrarImages();
-
-		//System.out.println(participantsNotFound);
+		migrarImages1();
+		migrarImages2();
 
 		System.out.println("FINISHED migration at " + sdf.format(new GregorianCalendar().getTime()));
 		// -- utils no migracio
@@ -2425,7 +2496,5 @@ public class Migracio {
 		//collectAgents();
 		//collectCities();
 	}
-
-
-
+	
 }
