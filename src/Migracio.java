@@ -1922,9 +1922,9 @@ public class Migracio {
 				if (r.get("Títol")!=null && !"".equals(r.get("Títol"))) {
 					currentWork = r.get("Títol").trim();
 					if (!currentWork.equals(lastWork)) {
-						if (work!=null) {
-							work.put("Title", currentWork+"@ca");
-							work.put("about", currentWork);
+						if (lastWork!=null) {
+							work.put("Title", lastWork+"@ca");
+							work.put("about", lastWork);
 							work.put("type", "AT_Work_FAT_Collection");
 							
 							String wri = uploadObject(work);
@@ -1943,9 +1943,8 @@ public class Migracio {
 						work = new CustomMap();
 						editorList = new ArrayList<String>();
 						nt  = null;
+						lastWork = currentWork;
 					}
-					
-					lastWork = currentWork;
 				}
 				
 				if (r.get("Núm. fotog.")!=null && !"".equals(r.get("Núm. fotog."))) {
@@ -2077,6 +2076,25 @@ public class Migracio {
 					updateObject(editorUri, editor);
 				}
 			}
+			
+			if (lastWork!=null) {
+				work.put("Title", currentWork+"@ca");
+				work.put("about", currentWork);
+				work.put("type", "AT_Work_FAT_Collection");
+				
+				String wri = uploadObject(work);
+				
+				if (nt!=null) {
+					CustomMap exp = new CustomMap();
+					exp.put("type", "ProtectionPromotionAT");
+					exp.put("references", wri);
+					String expUri = uploadObject(exp);
+					
+					for (String n : nt) imagesExpedient.put(expUri, n);
+					workExpedient.put(expUri, wri);
+				}
+			}
+			
 			r.close();
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -2223,7 +2241,7 @@ public class Migracio {
 						if (fn.endsWith(".tif") || fn.endsWith(".jpg")) {
 							media.put("type", "Image");
 							putImageData(media, fn, fn2);
-						} else if (fn.endsWith(".pdf") || fn.endsWith(".doc") || fn.endsWith(".rtf")) {
+						} else if (fn.endsWith(".pdf") || fn.endsWith(".doc") || fn.endsWith(".rtf") || fn.endsWith(".odt")) {
 							media.put("type", "Text");
 						} else continue;
 						
@@ -2255,31 +2273,38 @@ public class Migracio {
 				Object codiImg = e.getValue();
 				
 				String[] codis = null;
-				if (codiImg instanceof String)
-					codis = new String[]{ (String)codiImg };
-				else 
-					codis = (String[])codis;
 				
-				for (String fn : llistaFitxersMedia) {
-					for (String c : codis) {
-						int idx = fn.indexOf(c);
-						if (idx!=-1) {
-							CustomMap image = new CustomMap();
-							image.put("type", "Image");
-							String fn2 = fn.substring(idx);
-							
-							putImageData(image, fn, fn2);
-							
-							String fileuri = uploadObjectFile(fn);
-							
-							String workUri = workExpedient.get(uriExp);
-							if (workUri!=null) image.put("represents", workUri);
-							image.put("Uri", fileuri);
-							String imageuri = uploadObject(image);
-							
-							CustomMap exp = getObject(uriExp);
-							exp.put("hasMedia", imageuri);
-							updateObject(uriExp, exp);
+				if (codiImg != null) {
+					if (codiImg instanceof String)
+						codis = new String[]{ (String)codiImg };
+					else 
+						codis = (String[])codiImg;
+					
+					for (String fn : llistaFitxersMedia) {
+						for (String c : codis) {
+							int idx = fn.indexOf(c);
+							if (idx!=-1 && !"".equals(c.trim())) {
+								CustomMap media = new CustomMap();
+								
+								if (fn.endsWith(".tif") || fn.endsWith(".jpg")) {
+									media.put("type", "Image");
+								} else if (fn.endsWith(".pdf") || fn.endsWith(".doc") || fn.endsWith(".rtf") || fn.endsWith(".odt")) {
+									media.put("type", "Text");
+								} else continue;
+								
+								media.put("format",fn.substring(fn.length()-3).toLowerCase());
+								
+								String fileuri = uploadObjectFile(fn);
+								
+								String workUri = workExpedient.get(uriExp);
+								if (workUri!=null) media.put("represents", workUri);
+								media.put("Uri", fileuri);
+								String imageuri = uploadObject(media);
+								
+								CustomMap exp = getObject(uriExp);
+								exp.put("hasMedia", imageuri);
+								updateObject(uriExp, exp);
+							}
 						}
 					}
 				}
