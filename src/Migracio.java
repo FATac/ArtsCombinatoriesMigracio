@@ -449,13 +449,14 @@ public class Migracio {
 						model1.read("file:currentPerson.rdf");
 						
 						StmtIterator it2 = model1.listStatements();
-						CustomMap data = new CustomMap();
+						CustomMap person = new CustomMap();
 						String fatacId = url.substring(url.indexOf("id_article=")+11);
-						data.put("ac:FatacId", fatacId );
-						data.put("type", "ac:Person");
+						person.put("ac:FatacId", fatacId );
+						person.put("type", "ac:Person");
 						//System.out.println("FatacId " + fatacId);
 						
 						//System.out.println("Reading person...");
+						String contryNotFound = null;
 						
 						while(it2.hasNext()) {
 							Statement stmt1 = it2.next();
@@ -472,19 +473,19 @@ public class Migracio {
 						    	
 						    	if (currentUri.contains("participants")) {
 						    		if (content.equals("http://xmlns.com/foaf/0.1/givenName")) {
-										data.put("ac:givenName", object1.toString().trim());
+										person.put("ac:givenName", object1.toString().trim());
 										//System.out.println("name " + object1.toString());
 									} else if (content.equals("http://xmlns.com/foaf/0.1/familyName")) {
-										data.put("ac:familyName", object1.toString().trim());
+										person.put("ac:familyName", object1.toString().trim());
 										//System.out.println("surname " + object1.toString());
 									} else if (content.equals("http://purl.org/vocab/bio/0.1/biography")) {
 										String bio = object1.toString().replaceAll(" class=\"spip\"", "").replaceAll(" class=\"spip_out\"","");	
-										data.put("ac:Bio", bio);
+										person.put("ac:Bio", bio);
 										//System.out.println("CV " + bio);
 									}
 						    	}
 						    } else if (content.equals("http://purl.org/vocab/bio/0.1/date")) {
-								data.put("ac:BirthDate", object1.toString());
+								person.put("ac:BirthDate", object1.toString());
 								//System.out.println("BirthDate " + object1.toString());
 							} else if (content.equals("http://purl.org/vocab/bio/0.1/place")) {
 								String valEn = searchCityCountry(object1.asLiteral().getString(), "en")[0];
@@ -502,21 +503,25 @@ public class Migracio {
 										countryUri = uploadObject(country);
 										addedCountries.put(valEn, countryUri);
 									} else {
-										System.out.println("No s'ha pogut trobat cap pais de neixement pel nom : " + object1.asLiteral().getString() + ". Persona " + data.get("ac:givenName") + " " + data.get("ac:familyName"));
+										contryNotFound = object1.asLiteral().getString();
 									}
 								}
-								data.put("ac:bornIn", countryUri);
+								person.put("ac:bornIn", countryUri);
 								//System.out.println("bornIn " + countryUri);
 							}
 						}
 						
+						if (contryNotFound != null) {
+							System.out.println("No s'ha pogut trobat cap pais de neixement pel nom : " + contryNotFound + ". Persona " + person.get("ac:givenName") + " " + person.get("ac:familyName"));
+						}
+						
 						//System.out.println("Uploading person...");
-						String fullName = ((data.get("ac:givenName")!=null?data.get("ac:givenName")+" ":"") + (data.get("ac:familyName")!=null?data.get("ac:familyName"):"")).trim();
-						data.put("about", fullName);
-						data.put("ac:Name", fullName);
-						String agentUri = uploadObject(data);
+						String fullName = ((person.get("ac:givenName")!=null?person.get("ac:givenName")+" ":"") + (person.get("ac:familyName")!=null?person.get("ac:familyName"):"")).trim();
+						person.put("about", fullName);
+						person.put("ac:Name", fullName);
+						String agentUri = uploadObject(person);
 						backupAgents.put(fullName, agentUri);
-						realIds.put((String)data.get("ac:FatacId"), agentUri);
+						realIds.put((String)person.get("ac:FatacId"), agentUri);
 
 						//System.out.println("Uploaded. ");
 			    	} catch (Exception e) {
@@ -760,7 +765,10 @@ public class Migracio {
 							    if (subjectURI.contains("events")) {
 							    	if (property.equals("http://purl.org/dc/elements/1.1/title")) {
 										event.put("ac:Title", object1.toString());
-										if ("ca".equals(object1.asLiteral().getLanguage()))	event.put("about", object1.asLiteral().getString());
+										if ("ca".equals(object1.asLiteral().getLanguage())) {
+											event.put("about", object1.asLiteral().getString());
+											caseFile.put("about", "Expedient " + object1.asLiteral().getString());
+										}
 										//caseFile.put("Description", object1.toString());
 										//System.out.println("title" + object1.toString());
 									} else if (property.equals("http://purl.org/dc/elements/1.1/date")) {
@@ -1999,6 +2007,7 @@ public class Migracio {
 							if (nt!=null) {
 								CustomMap exp = new CustomMap();
 								exp.put("type", "ac:ProtectionPromotionAT");
+								work.put("about", "Expedient " + lastWork);
 								exp.put("ac:references", wri);
 								String expUri = uploadObject(exp);
 								
