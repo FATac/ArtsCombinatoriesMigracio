@@ -310,7 +310,9 @@ public class Migracio {
 	private static String uploadObjectFile(String fileName) throws Exception {
 		if (migrar != Migrar.RES) {
 			try {
-				URL url = new URL("http://"+hostport+"/ArtsCombinatoriesRest/media/upload?fn=" + URLEncoder.encode(fileName.substring(fileName.length()-5),"UTF-8"));
+				String[] parts = fileName.split("\\/");
+				String fileNameOnly = parts[parts.length-1];
+				URL url = new URL("http://"+hostport+"/ArtsCombinatoriesRest/media/upload?fn=" + URLEncoder.encode(fileNameOnly,"UTF-8"));
 				
 				HttpURLConnection conn = (HttpURLConnection)url.openConnection();
 				conn.setRequestProperty("Content-Type", "application/json");
@@ -353,7 +355,7 @@ public class Migracio {
 			} catch (OutOfMemoryError e) {
 				log.debug("WARNING: Problema de falta de memoria pujant arxiu: " + fileName);
 			} catch (FileNotFoundException e) {
-				e.printStackTrace();
+				log.error("",e);
 			}
 		}
 		
@@ -528,13 +530,13 @@ public class Migracio {
 						//log.debug("Uploaded. ");
 			    	} catch (Exception e) {
 			    		log.debug("ERROR with person " + object.toString());
-			    		e.printStackTrace();
+			    		log.error("",e);
 			    	}
 			    }
 			}
 		} catch (Exception e) {
 			log.debug("Error migrating persons " + e);
-			e.printStackTrace();
+			log.error("",e);
 		}
 
 	}
@@ -574,7 +576,7 @@ public class Migracio {
 		    	cityName = sb.substring(idx2, idx1);
 		    }
 		} catch (Exception e) {
-			e.printStackTrace();
+			log.error("",e);
 			return null;
 		}
 		
@@ -908,13 +910,13 @@ public class Migracio {
 						}
 			    	} catch (Exception e) {
 			    		log.debug("ERROR with event " + object.toString() + "\n");
-			    		e.printStackTrace();
+			    		log.error("",e);
 			    	}
 			    }
 			}
 		} catch (Exception e) {
 			log.debug("Error " + e);
-			e.printStackTrace();
+			log.error("",e);
 		}
 	}
 	
@@ -1089,7 +1091,10 @@ public class Migracio {
 									    	currEditor.put("ac:Homepage", value1);
 									    } else if (predicateURI1.equals("http://www.fundaciotapies.org/terms/0.1/location")) {
 									    	List<String> l = seekAndGenerateLocations(value1);
-									    	if (l.size()>0) currEditor.put("ac:isLocatedAt", l.get(0));
+									    	if (l.size()>0) {
+									    		currEditor.put("ac:isLocatedAt", l.get(0));
+									    		publication.put("ac:tookPlaceAt", l.get(0));
+									    	}
 									    } else if (predicateURI1.equals("http://www.fundaciotapies.org/terms/0.1/id")) {
 									    	currEditor.put("ac:FatacId", value1);
 									    }
@@ -1184,6 +1189,10 @@ public class Migracio {
 								org.put("ac:performsRole", roleuri);
 								updateObject(orguri, org);
 							}
+							
+							CustomMap publik = getObject(puri);
+							publik.put("ac:carriedOutBy", orguri);
+							updateObject(puri, publik);
 						}
 						//log.debug("Uploaded.");
 						
@@ -1211,13 +1220,13 @@ public class Migracio {
 						
 			    	} catch (Exception e) {
 			    		log.debug("ERROR with publication " + object.toString());
-			    		e.printStackTrace();
+			    		log.error("",e);
 			    	}
 			    }
 			}
 		} catch (Exception e) {
 			log.debug("Error " + e);
-			e.printStackTrace();
+			log.error("",e);
 		}
 	}
 	
@@ -1296,7 +1305,7 @@ public class Migracio {
 			}
 				
 		} catch (Exception e) {
-			 e.printStackTrace();
+			 log.error("",e);
 		}
 		
 		return null;
@@ -1431,12 +1440,12 @@ public class Migracio {
 						migrarRelation(params.get(0), params.get(1), params.get(2), params.get(3), params.get(5));
 					} catch (Exception e) {
 						log.debug("WARNING: No s'ha pogut migrar la relació: (" + params.get(0) + " " + params.get(1) + ") (" + params.get(2) + " " + params.get(3) + ") " + params.get(5));
-						//e.printStackTrace();
+						//log.error("",e);
 					}
 			    }
 			}
 		 } catch (Exception e) {
-			 e.printStackTrace();
+			 log.error("",e);
 		 }
 	}
 	
@@ -1756,7 +1765,7 @@ public class Migracio {
 			
 			r.close();
 		} catch (Exception e) {
-			e.printStackTrace();
+			log.error("",e);
 		}
 	}
 	
@@ -1981,7 +1990,7 @@ public class Migracio {
 			
 			r.close();
 		} catch (Exception e) {
-			e.printStackTrace();
+			log.error("",e);
 		}
 	}
 	
@@ -2069,6 +2078,9 @@ public class Migracio {
 				}
 				if (r.get("obra original =")!=null && !"".equals(r.get("obra original ="))) {
 					work.put("ac:hasType", "Original");
+				}
+				if (r.get("Núm. Accés")!=null && !"".equals(r.get("Núm. Accés"))) {
+					work.put("ac:RegisterNumber", r.get("Núm. Accés").trim());
 				}
 				if (r.get("préstec a :")!=null && !"".equals(r.get("préstec a :"))) {
 					// TODO: pocs registres i poc automatitzable: MANUALMENT
@@ -2181,7 +2193,7 @@ public class Migracio {
 			
 			r.close();
 		} catch (Exception e) {
-			e.printStackTrace();
+			log.error("",e);
 		}
 	}
 	
@@ -2239,7 +2251,7 @@ public class Migracio {
 				}
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
+			log.error("",e);
 		}
 	}
 	
@@ -2395,7 +2407,7 @@ public class Migracio {
 				}
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
+			log.error("",e);
 		}
 	}
 		
@@ -2449,7 +2461,7 @@ public class Migracio {
 			}
 			//log.debug("Uploaded.");
 		} catch (Exception e) {
-			e.printStackTrace();
+			log.error("",e);
 		}
 	}
 	
@@ -2568,9 +2580,48 @@ public class Migracio {
 			}*/
 		
 		} catch (Exception e) {
-			e.printStackTrace();
+			log.error("",e);
 		}
 		
+	}
+	
+	private static void migrarTipusDocumental() {
+		log.debug(" ======================== MIGRACIO DOCUMENTARY TYPE ========================== ");
+		
+		try {
+			CsvReader r = new CsvReader(new FileReader(new File("./fm/VocavbularisControlats.csv")));
+			r.readHeaders();
+			
+			String className = "ac:PaperDocumentaryType";
+			
+			while(r.readRecord()) {
+				if (r.get("TIPUS")!=null && !"".equals(r.get("TIPUS"))) {
+					if ("AUDIOVISUAL".equals(r.get("TIPUS").trim())) className = "ac:AudiovisualDocumentaryType";
+					else if ("PAPER".equals(r.get("TIPUS").trim())) className = "ac:PaperDocumentaryType";
+				}
+				
+				CustomMap obj = new CustomMap();
+				obj.put("type", className);
+				
+				if (r.get("TÍTOL-cat")!=null && !"".equals(r.get("TÍTOL-cat"))) {
+					obj.put("about", r.get("TÍTOL-cat").trim());
+					obj.put("ac:Name", r.get("TÍTOL-cat").trim()+"@ca");
+				}
+				if (r.get("TÍTOL-cast")!=null && !"".equals(r.get("TÍTOL-cast"))) {
+					obj.put("ac:Name", r.get("TÍTOL-cast").trim()+"@es");
+				}
+				if (r.get("TÍTOL-ang")!=null && !"".equals(r.get("TÍTOL-ang"))) {
+					obj.put("ac:Name", r.get("TÍTOL-ang").trim()+"@en");
+				}
+				if (r.get("DEFINICIÓ")!=null && !"".equals(r.get("DEFINICIÓ"))) {
+					obj.put("ac:definition", r.get("DEFINICIÓ").trim()+"@ca");
+				}
+				
+				uploadObject(obj);
+			}
+		} catch (Exception e) {
+			log.error("",e);
+		}
 	}
 
 	public static void main(String[] args) throws Exception {
@@ -2586,6 +2637,8 @@ public class Migracio {
 			
 			// ----- Migrar dades fixes				DONE
 			migrarDadesFixes();
+			migrarCollections();
+			migrarTipusDocumental();
 			
 			// ----- Migració de SPIP				DONE
 			migrarPersons(); 				
@@ -2598,13 +2651,11 @@ public class Migracio {
 			migrarFileMaker2();
 			migrarFileMaker3();
 			
-			// ----- Migració de Media				DONE
-			migrarCollections();
 		}
 		
 		backupDadesTemporalsMigracio();
-		
 		if (migrar == Migrar.TOT || migrar == Migrar.NOMES_MEDIA) {
+			// ----- Migració de Media				DONE
 			migrarMedia();
 			migrarImages();
 		}
