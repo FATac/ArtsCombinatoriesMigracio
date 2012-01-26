@@ -174,6 +174,7 @@ public class Migracio {
 	
 	static boolean DOWNLOAD_DATA = true;
 	static Migrar migrar = Migrar.TOT;
+	static String directori_medias = "";
 		
 	static CustomMap errors = new CustomMap();
 	
@@ -1018,6 +1019,7 @@ public class Migracio {
 								} else if (predicateURI.equals("http://purl.org/dc/elements/1.1/description")) {
 									publication.put("ac:Description", value);
 								} else if (predicateURI.equals("http://www.fundaciotapies.org/terms/0.1/cover")) {
+									if ("soft".equals(value)) value = "paperback";
 									publication.put("ac:Cover", value);
 								} else if (predicateURI.equals("http://www.fundaciotapies.org/terms/0.1/pvp")) {
 									publication.put("ac:pvp", value);
@@ -1037,6 +1039,10 @@ public class Migracio {
 									publication.put("ac:measurement", value);
 								} else if (predicateURI.equals("http://www.fundaciotapies.org/terms/0.1/color")) {
 									publication.put("ac:ColorIllustrations", value);
+								} else if (predicateURI.equals("http://www.fundaciotapies.org/terms/0.1/pages_num")) {
+									publication.put("ac:NumberofPages", value);
+								} else if (predicateURI.equals("http://purl.org/dc/elements/1.1/date")) {
+									publication.put("ac:Date", value);
 								}
 
 						    } else if (subjectURI.contains("editors")) {
@@ -1491,6 +1497,8 @@ public class Migracio {
 			boolean isExpoSet = false;
 			boolean isProdSet = false;
 			boolean isRealSet = false;
+			List<String> agentProductor = new ArrayList<String>();
+			List<String> agentRealitzador = new ArrayList<String>();
 			
 			while (r.readRecord()) {
 				
@@ -1510,6 +1518,31 @@ public class Migracio {
 							CustomMap caseFile = getObject(caseFileUri);
 							caseFile.put("ac:hasMedia", mediaUri);
 							updateObject(caseFileUri, caseFile);
+							eventUri = caseFile.get("ac:references")+"";
+						}
+						
+						if (eventUri!=null) {
+							for(String id : agentProductor) {
+								CustomMap role = new CustomMap();
+								role.put("type", "ac:Producer");
+								role.put("ac:appliesOn", eventUri);
+								String roleUri = uploadObject(role);
+								
+								CustomMap prod = getObject(id);
+								prod.put("ac:performsRole", roleUri);
+								updateObject(id, prod);
+							}
+							
+							for(String id : agentRealitzador) {
+								CustomMap role = new CustomMap();
+								role.put("type", "ac:Film-maker");
+								role.put("ac:appliesOn", eventUri);
+								String roleUri = uploadObject(role);
+								
+								CustomMap prod = getObject(id);
+								prod.put("ac:performsRole", roleUri);
+								updateObject(id, prod);
+							}
 						}
 					}
 					
@@ -1523,11 +1556,11 @@ public class Migracio {
 					isExpoSet = false;
 					isProdSet = false;
 					isRealSet = false;
+					agentProductor = new ArrayList<String>();
+					agentRealitzador = new ArrayList<String>();
 				}
-				 
 				
-				List<String> agentProductor = new ArrayList<String>();
-				List<String> agentRealitzador = new ArrayList<String>();
+				
 				
 				if (r.get("any")!=null && !"".equals(r.get("any"))) {
 					if (media.get("ac:StartDate")==null) media.put("ac:StartDate", r.get("any"));
@@ -1606,7 +1639,7 @@ public class Migracio {
 											agent.put("type", "ac:Person");
 											agent.put("ac:givenName", fname[0]);
 											if (fname.length>1)	agent.put("ac:familyName", p.replace(fname[0]+" ", ""));
-											String fullName = agent.get("givenName") + (agent.get("familyName")!=null?" "+agent.get("familyName"):"");
+											String fullName = agent.get("ac:givenName") + (agent.get("ac:familyName")!=null?" "+agent.get("ac:familyName"):"");
 											agent.put("about", fullName);
 											agent.put("ac:Name", fullName);
 										} else {
@@ -1784,6 +1817,8 @@ public class Migracio {
 			String caseFileUri = null;
 			CustomMap media = null;
 			String[] mfid = {null, null};
+			List<String> agentAutor = null;
+			List<String> agentProductor = null;
 			
 			boolean isAutorSet = false;
 			boolean isExpoSet = false;
@@ -1803,8 +1838,32 @@ public class Migracio {
 							CustomMap caseFile = getObject(caseFileUri);
 							caseFile.put("ac:hasMedia", mediaUri);
 							updateObject(caseFileUri, caseFile);
+							eventUri = caseFile.get("ac:references")+"";
 						}
 						
+						if (eventUri!=null) {
+							for(String id : agentProductor) {
+								CustomMap role = new CustomMap();
+								role.put("type", "ac:Producer");
+								role.put("ac:appliesOn", eventUri);
+								String roleUri = uploadObject(role);
+								
+								CustomMap prod = getObject(id);
+								prod.put("ac:performsRole", roleUri);
+								updateObject(id, prod);
+							}
+							
+							for(String id : agentAutor) {
+								CustomMap role = new CustomMap();
+								role.put("type", "ac:Lecturer");
+								role.put("ac:appliesOn", eventUri);
+								String roleUri = uploadObject(role);
+								
+								CustomMap autor = getObject(id);					
+								autor.put("ac:performsRole", roleUri);
+								updateObject(id, autor);
+							}
+						}
 					}
 					
 					lastTitle = r.get("títol");
@@ -1817,10 +1876,10 @@ public class Migracio {
 					media.put("type", "ac:Audio");
 					isAutorSet = false;
 					isExpoSet = false;
+					agentAutor = new ArrayList<String>();
+					agentProductor = new ArrayList<String>();
 				}
 				
-				List<String> agentAutor = new ArrayList<String>();
-				List<String> agentProductor = new ArrayList<String>();
 				
 				if (r.get("exposició")!=null && !"".equals(r.get("exposició"))) {
 					if (!isExpoSet) {
@@ -1894,8 +1953,13 @@ public class Migracio {
 					}
 				}
 				
-				if (r.get("productor")!=null && !"".equals(r.get("productor"))) {
-					// TODO: posar productor manualment
+				if (r.get("durada")!=null && !"".equals(r.get("durada"))) {
+					media.put("ac:extent", r.get("durada"));
+				}
+				
+				if (r.get("any")!=null && !"".equals(r.get("any"))) {
+					String any = r.get("any");
+					media.put("ac:created", any);
 				}
 				
 				if (r.get("contingut")!=null && !"".equals(r.get("contingut"))) {
@@ -1948,6 +2012,23 @@ public class Migracio {
 						media.put("about", r.get("títol"));
 					}
 				}
+			}
+			
+			String eventUri = null;
+			
+			if (media!=null) {
+				String mediaUri = uploadObject(media);
+				if (mfid[0]!=null) {					
+					mfid[1] = mediaUri;
+					mediaFileId.add(mfid);
+					mfid = new String[]{null, null};
+				}
+				if (caseFileUri!=null) {
+					CustomMap caseFile = getObject(caseFileUri);
+					caseFile.put("ac:hasMedia", mediaUri);
+					updateObject(caseFileUri, caseFile);
+					eventUri = caseFile.get("ac:references")+"";
+				}
 				
 				if (eventUri!=null) {
 					for(String id : agentProductor) {
@@ -1972,20 +2053,6 @@ public class Migracio {
 						updateObject(id, autor);
 					}
 				}
-			}
-			
-			if (media!=null) {
-				String mediaUri = uploadObject(media);
-				if (mfid[0]!=null) {					
-					mfid[1] = mediaUri;
-					mediaFileId.add(mfid);
-				}
-				if (caseFileUri!=null) {
-					CustomMap caseFile = getObject(caseFileUri);
-					caseFile.put("ac:hasMedia", mediaUri);
-					updateObject(caseFileUri, caseFile);
-				}
-				
 			}
 			
 			r.close();
@@ -2226,13 +2293,10 @@ public class Migracio {
 	}
 	
 	
-	// TODO: probablement hi ha objectes que tenen més d'un video! <--- verificar
 	private static void migrarMedia() {
 		log.debug(" ======================== MIGRACIO AUDIO/VIDEO ========================== ");
 		
-		//List<String> llistaFitxersMedia = getMediaList("BANC ÀUDIOVISUAL"); TODO set path
-		// TODO: obtenir dades adicionals video (duració, format, bitrate, etc.)
-		List<String> llistaFitxersMedia = getMediaList("/home/jordi.roig.prieto/PROVA_MIGRACIO_MEDIA");
+		List<String> llistaFitxersMedia = getMediaList(directori_medias);
 		
 		try {
 			for (String[] dup : mediaFileId) {
@@ -2303,7 +2367,7 @@ public class Migracio {
 	private static void migrarImages() {
 		log.debug(" ======================== MIGRACIO IMAGES ========================== ");
 		
-		List<String> llistaFitxersMedia = getMediaList("/home/jordi.roig.prieto/PROVA_MIGRACIO_MEDIA");
+		List<String> llistaFitxersMedia = getMediaList(directori_medias);
 		
 		try {
 			for (String fileName : llistaFitxersMedia) {
@@ -2414,32 +2478,32 @@ public class Migracio {
 	
 	private static String[][] collectionList = {
 	
-		{"C001", "Inauguracions", null, "ac:Opening"},
-		{"C002", "Conferències i seminaris", null, "ac:LecturesandSeminars"},
-		{"C003", "Roda de premsa", null, "ac:PressReleases"},
-		{"C004", "Sopars", null, "ac:Dinners"},
-		{"C005", "Acords institucionals", null, "ac:InstitutionalAgreement"},
-		{"C006", "Emissions i gravacions: TV, ràdio, cinema", null, "ac:TvRadioCinema"},
-		{"C007", "Visites protocol·làries", null, "ac:ProtocolVisits"},
-		{"C008", "Espectacles", null, "ac:Show"},
-		{"C009", "Activitats paral·les", null, "ac:OtherActivities"},
-		{"C010", "Itineràncies", null, "ac:ExhibitionTourings"},
-		{"C011", "Fotografies d'instal·lació", null, "ac:PhotoInstallation"},
-		{"C012", "Llibre d'instal·lació", null, "ac:InstallationGuide"},
-		{"C013", "Entrevistes", null, "ac:Interviews"},
-		{"C014", "Presentacions", null, "ac:PresentationsorLaunchs"},
-		{"C015", "Tallers i trobades", null, "ac:WorkshopandMeeting"},
-		{"C016", "Obra", null, "ac:Work"},
-		{"C017", "Material per premsa", null, "ac:PressKits"},
-		{"C018", "Foto d'instal·lació Col·lecció EspaiA", null, "ac:PhotoInstallationCollectionSpaceA"},
-		{"C019", "Servei educatiu taller", null, "ac:EducationalServicesWorkshop"},
-		{"C020", "Servei educatiu visites dinamitzades", null, "ac:EducationalDynamicVisit"},
-		{"C021", "Muntatge exposició", null, "ac:Set-upProject"},
-		{"C022", "Foto instal·lació fora FAT", null, "ac:PhotoInstallationOutsideFat"},
-		{"C023", "Performance", null, "ac:Performance"},
-		{"C024", "Portes obertes", null, "ac:FreeAdmissionDays"},
-		{"C025", "Clausura", null, "ac:Close"},
-		{"C026", "Curs", null, "ac:Courses"}
+		{"C001", "Inauguracions", null, "ac:Opening", "Opening", "Inauguraciones"},
+		{"C002", "Conferències i seminaris", null, "ac:LecturesandSeminars", "Lectures and seminars", "Lecturas y seminarios"},
+		{"C003", "Roda de premsa", null, "ac:PressReleases", "Press releases", "Rueda de prensa"},
+		{"C004", "Sopars", null, "ac:Dinners", "Dinners", "Cenas"},
+		{"C005", "Acords institucionals", null, "ac:InstitutionalAgreement", "Institutional agreements", "Acuerdos Institucionales"},
+		{"C006", "Emissions i gravacions: TV, ràdio, cinema", null, "ac:TvRadioCinema", "TV radio and cinema recordings and broadcast", "Emisiones y grabaciones: TV, radio, cine"},
+		{"C007", "Visites protocol·làries", null, "ac:ProtocolVisits", "Protocol visits", "Visitas protocolarias"},
+		{"C008", "Espectacles", null, "ac:Show", "Shows", "Espectáculos"},
+		{"C009", "Activitats paral·les", null, "ac:OtherActivities", "Other activities", "Actividades paralelas"},
+		{"C010", "Itineràncies", null, "ac:ExhibitionTourings", "Exhibition tourings", "Itinerancias"},
+		{"C011", "Fotografies d'instal·lació", null, "ac:PhotoInstallation", "Installation pictures", "Fotografías de instalación"},
+		{"C012", "Llibre d'instal·lació", null, "ac:InstallationGuide", "Installation guide", "Guía de instalación"},
+		{"C013", "Entrevistes", null, "ac:Interviews", "Interviews", "Entrevistas"},
+		{"C014", "Presentacions", null, "ac:PresentationsorLaunchs", "Presentation launchs", "Presentaciones"},
+		{"C015", "Tallers i trobades", null, "ac:WorkshopandMeeting", "Workshops and meetings", "Talleres y presentaciones"},
+		{"C016", "Obra", null, "ac:Work", "Work", "Obra"},
+		{"C017", "Material per premsa", null, "ac:PressKits", "Press kits", "Material de prensa"},
+		{"C018", "Foto d'instal·lació Col·lecció EspaiA", null, "ac:PhotoInstallationCollectionSpaceA", "Photo installation collection spaceA", "Foto de instalación Colección espacioA"},
+		{"C019", "Servei educatiu taller", null, "ac:EducationalServicesWorkshop", "Educational services workshop", "Servicio educativo taller"},
+		{"C020", "Servei educatiu visites dinamitzades", null, "ac:EducationalDynamicVisit", "Educational dynamic visit", "Servicio educativo visitas dinamizadas"},
+		{"C021", "Muntatge exposició", null, "ac:Set-upProject", "Set-up project", "Montaje de exposición"},
+		{"C022", "Foto instal·lació fora de FAT", null, "ac:PhotoInstallationOutsideFat", "Installation picture outside FAT", "Foto instalacion fuera de FAT"},
+		{"C023", "Actuació", null, "ac:Performance", "Performance", "Actuació"},
+		{"C024", "Portes obertes", null, "ac:FreeAdmissionDays", "Free admission days", "Puertas abiertas"},
+		{"C025", "Clausura", null, "ac:Close", "Close", "Clausura"},
+		{"C026", "Curs", null, "ac:Courses", "Courses", "Curso"}
 	
 	};
 
@@ -2453,7 +2517,9 @@ public class Migracio {
 			while(idx<collectionList.length) {
 				CustomMap collection = new CustomMap();
 				collection.put("type", collectionList[idx][3]);
-				collection.put("ac:Title", collectionList[idx][1]);
+				collection.put("ac:Title", collectionList[idx][1]+"@ca");
+				collection.put("ac:Title", collectionList[idx][4]+"@en");
+				collection.put("ac:Title", collectionList[idx][5]+"@es");
 				collection.put("about", collectionList[idx][1]);
 				String uri = uploadObject(collection);
 				collectionList[idx][2] = uri;
@@ -2628,9 +2694,27 @@ public class Migracio {
 		migrar = Migrar.TOT;
 		hostport = "localhost:8080";
 		String resetTime = null; // "30/11/11 16:37"
+		directori_medias = ".";
+		
+		// arguments: <Què migrar> <Url servidor> <Data-Hora servidor> <DirectoriMedias> 
+		if (args!=null) {
+			if (args.length>0) {
+				if ("tot".equals(args[0])) migrar = Migrar.TOT;
+				else if ("nomes media".equals(args[0])) migrar = Migrar.NOMES_MEDIA;
+				else if ("nomes dades".equals(args[0])) migrar = Migrar.NOMES_DADES;
+			}
+			if (args.length>1 && !"".equals(args[1]) && args[1]!=null) hostport = args[1];
+			if (args.length>2 && !"".equals(args[2]) && args[2]!=null) resetTime = args[2];
+			if (args.length>3) directori_medias = args[3];
+		}
 		
 		SimpleDateFormat sdf = new SimpleDateFormat("kk:mm");
 		log.debug("Starting migration at " + sdf.format(new GregorianCalendar().getTime()));
+		log.debug("Configuració : ");
+		log.debug("\t Migrar: " + migrar);
+		log.debug("\t URL servidor: " + hostport);
+		log.debug("\t Data i hora reset: " + resetTime);
+		log.debug("\t Directori medias: " + directori_medias);
 		
 		if (migrar == Migrar.TOT || migrar == Migrar.NOMES_DADES) {
 			reseteja(resetTime);
@@ -2668,7 +2752,7 @@ public class Migracio {
 	}
 
 	private static void backupDadesTemporalsMigracio() throws Exception {
-		if (migrar == Migrar.NOMES_DADES) {
+		if (migrar == Migrar.NOMES_DADES || migrar == Migrar.TOT) {
 			log.debug(" ======================== BACKUP DADES TEMPORALS ========================== ");
 			
 			String collectionListJson = new Gson().toJson(collectionList);
