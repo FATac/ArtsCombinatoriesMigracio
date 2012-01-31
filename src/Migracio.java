@@ -15,6 +15,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -1044,7 +1045,19 @@ public class Migracio {
 								} else if (predicateURI.equals("http://purl.org/dc/elements/1.1/date")) {
 									publication.put("ac:Date", value);
 								}
-
+						    } else if (predicateURI.equals("http://purl.org/dc/elements/1.1/language")) {
+						    		if ("ca".equals(value)) value = "Catala";
+						    		else if ("es".equals(value)) value = "Espanyol";
+						    		else if ("en".equals(value)) value = "Angles";
+						    		else if ("fr".equals(value)) value = "Frances";
+						    		else if ("it".equals(value)) value = "Italia";
+						    		else if ("az".equals(value)) value = "Azeri";
+						    		else if ("is".equals(value)) value = "Islandes";
+						    		else if ("ar".equals(value)) value = "Arab";
+						    		else if ("pt".equals(value)) value = "Portugues";
+						    		else if ("de".equals(value)) value = "Alemany";
+						    		else if ("sr".equals(value)) value = "Serbi";
+						    		publication.put("ac:hasLanguage", value);
 						    } else if (subjectURI.contains("editors")) {
 						    	if (!subjectURI.equals(editorLastId)) {
 						    		if (editorLastId!=null)	editorsList.add(currEditor);
@@ -2584,7 +2597,11 @@ public class Migracio {
 					"Espanyol", "Espanyol@ca", "Español@es", "Spanish@en",
 					"Frances", "Francès@ca", "Francés@es", "French@en",
 					"Arab", "Àrab@ca", "Árabe@es", "Arabic@en",
-					"Alemany", "Alemany@ca", "Alemán@es", "German@en"
+					"Alemany", "Alemany@ca", "Alemán@es", "German@en",
+					"Islandes", "Islandès@ca", "Islandés@es", "Icelandic@en",
+					"Azeri", "Àzeri@ca", "Azerí@es", "Azerbaijani@en",
+					"Portuges", "Portuguès@ca", "Portugués@es", "Portuguese@en",
+					"Serbi", "Serbi@ca", "Serbio@es", "Serbian@en"
 			};
 			
 			String[] kindArtWork = {
@@ -2696,24 +2713,34 @@ public class Migracio {
 		String resetTime = null; // "30/11/11 16:37"
 		directori_medias = ".";
 		
-		// arguments: <Què migrar> <Url servidor> <Data-Hora servidor> <DirectoriMedias> 
+		SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yy kk:mm");
+		String ara = sdf.format(new Date()); 
+		
+		// arguments: <Què migrar> <Url servidor> <Data-Hora servidor> <DirectoriMedias>
 		if (args!=null) {
 			if (args.length>0) {
 				if ("tot".equals(args[0])) migrar = Migrar.TOT;
 				else if ("nomes media".equals(args[0])) migrar = Migrar.NOMES_MEDIA;
 				else if ("nomes dades".equals(args[0])) migrar = Migrar.NOMES_DADES;
+				else if ("?".equals(args[0])) {
+					System.out.println("arguments: <Què migrar> <Url servidor> <Data-Hora servidor> <DirectoriMedias>");
+					System.out.println("exemple 1: \"tot\" \"localhost:8080\" \""+ara+"\" \"/directorimedias\"");
+					System.out.println("exemple 2: \"nomes media\" \"localhost:8080\" \""+ara+"\" \"/directorimedias\"");
+					System.out.println("exemple 3: \"nomes dades\" \"localhost:8080\" \""+ara+"\" \"/directorimedias\"");
+					System.exit(0);
+				}
 			}
 			if (args.length>1 && !"".equals(args[1]) && args[1]!=null) hostport = args[1];
 			if (args.length>2 && !"".equals(args[2]) && args[2]!=null) resetTime = args[2];
 			if (args.length>3) directori_medias = args[3];
 		}
 		
-		SimpleDateFormat sdf = new SimpleDateFormat("kk:mm");
+		sdf = new SimpleDateFormat("kk:mm");
 		log.debug("Starting migration at " + sdf.format(new GregorianCalendar().getTime()));
 		log.debug("Configuració : ");
 		log.debug("\t Migrar: " + migrar);
 		log.debug("\t URL servidor: " + hostport);
-		log.debug("\t Data i hora reset: " + resetTime);
+		log.debug("\t Data i hora reset: " + (resetTime!=null?resetTime:"(automàtic)"));
 		log.debug("\t Directori medias: " + directori_medias);
 		
 		if (migrar == Migrar.TOT || migrar == Migrar.NOMES_DADES) {
