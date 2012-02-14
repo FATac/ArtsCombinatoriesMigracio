@@ -813,7 +813,7 @@ public class Migracio {
 							    				documents.put(lastDocument, currDoc);
 							    			} else if (((String)currDoc.get("doctype")).startsWith("Collection")) {
 							    				// no action
-							    			} else if (((String)currDoc.get("doctype")).startsWith("Event") || ((String)currDoc.get("doctype")).startsWith("Activity")) {
+							    			} else if (((String)currDoc.get("doctype")).startsWith("Event")) {
 							    				currDoc.put("ac:FatacId", lastDocument );
 							    				currDoc.put("type", "ac:SpecificActivity");
 							    				specificEvents.put(lastDocument, currDoc);
@@ -2089,6 +2089,7 @@ public class Migracio {
 			CustomMap work = null;
 			List<String> editorList = null;
 			String[] nt = null;
+			boolean isPublication = false;
 			
 			while (r.readRecord()) {
 				if (r.get("Títol")!=null && !"".equals(r.get("Títol"))) {
@@ -2097,9 +2098,23 @@ public class Migracio {
 						if (lastWork!=null) {
 							work.put("ac:Title", lastWork+"@ca");
 							work.put("about", lastWork);
-							work.put("type", "ac:AT_Work_FAT_Collection");
+							if (!isPublication)
+								work.put("type", "ac:AT_Work_FAT_Collection");
+							else
+								work.put("type", "ac:AT_Work_FAT_Collection,ac:Publication");
 							
 							String wri = uploadObject(work);
+							
+							for (String editorUri : editorList) {
+								CustomMap role = new CustomMap();
+								role.put("type", "ac:Editor");
+								role.put("ac:appliesOn", wri);
+								String roleUri = uploadObject(role);
+								
+								CustomMap editor = getObject(editorUri);
+								editor.put("ac:performsRole", roleUri);
+								updateObject(editorUri, editor);
+							}
 							
 							if (nt!=null) {
 								CustomMap exp = new CustomMap();
@@ -2117,6 +2132,7 @@ public class Migracio {
 						editorList = new ArrayList<String>();
 						nt  = null;
 						lastWork = currentWork;
+						isPublication = false;
 					}
 				}
 				
@@ -2193,23 +2209,22 @@ public class Migracio {
 					work.put("ac:EstimatedValue", Math.round(Math.abs(d)));
 				}
 				if (r.get("Edició")!=null && !"".equals(r.get("Edició"))) {
-					CustomMap pub = new CustomMap();
-					pub.put("type", "ac:Publication");
 					String editorUri = null;
 					
 					if (r.get("Impressor")!=null && !"".equals(r.get("Impressor"))) {
 						if (r.get("Mides planxa")!=null && !"".equals(r.get("Mides planxa"))) {
-							pub.put("ac:SheetSize", r.get("Mides planxa").trim());
+							work.put("ac:SheetSize", r.get("Mides planxa").trim());
 						}
 						if (r.get("Tiratge")!=null && !"".equals(r.get("Tiratge"))) {
-							pub.put("ac:Circulation", r.get("Tiratge").trim());
+							work.put("ac:Circulation", r.get("Tiratge").trim());
 						}
 						if (r.get("Núm. planxes")!=null && !"".equals(r.get("Núm. planxes"))) {
-							pub.put("ac:SheetNumber", r.get("Núm. planxes").trim());
+							work.put("ac:SheetNumber", r.get("Núm. planxes").trim());
 						}
 						if (r.get("Filigrana")!=null && !"".equals(r.get("Filigrana"))) {
-							pub.put("ac:Watermark", r.get("Filigrana").trim());
+							work.put("ac:Watermark", r.get("Filigrana").trim());
 						}
+						isPublication = true;
 					}
 					
 					if (r.get("Editor")!=null && !"".equals(r.get("Editor"))) {
@@ -2234,22 +2249,14 @@ public class Migracio {
 										backupAgents.put(p, editorUri);
 									} else {
 										editorUri = l.get(0); 
-									}	
+									}
 								}
+								
+								editorList.add(editorUri);
 							}
+							isPublication = true;
 						}
 					}
-					
-					String puburi = uploadObject(pub);
-					
-					CustomMap role = new CustomMap();
-					role.put("type", "ac:Editor");
-					role.put("ac:appliesOn", puburi);
-					String roleUri = uploadObject(role);
-					
-					CustomMap editor = getObject(editorUri);
-					editor.put("ac:performsRole", roleUri);
-					updateObject(editorUri, editor);
 				}
 			}
 			
@@ -2711,7 +2718,7 @@ public class Migracio {
 		migrar = Migrar.TOT;
 		hostport = "localhost:8080";
 		String resetTime = null; // "30/11/11 16:37"
-		directori_medias = ".";
+		directori_medias = "/home/jordi.roig.prieto/PROVA_MIGRACIO_MEDIA";
 		
 		SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yy kk:mm");
 		String ara = sdf.format(new Date()); 
