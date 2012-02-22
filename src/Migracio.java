@@ -5,6 +5,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.lang.reflect.Type;
@@ -13,9 +14,11 @@ import java.net.URL;
 import java.net.URLEncoder;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
+import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -24,10 +27,16 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeSet;
 
+import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
+import javax.imageio.stream.FileImageInputStream;
+import javax.imageio.stream.ImageInputStream;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
 import org.apache.log4j.Logger;
+import org.apache.sanselan.ImageInfo;
+import org.apache.sanselan.Sanselan;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -49,11 +58,13 @@ import com.hp.hpl.jena.rdf.model.RDFNode;
 import com.hp.hpl.jena.rdf.model.Resource;
 import com.hp.hpl.jena.rdf.model.Statement;
 import com.hp.hpl.jena.rdf.model.StmtIterator;
-import com.ibm.icu.util.GregorianCalendar;
 
+// CustomMap és un HashMap que permet afegir diversos elements per a cada clau
+// això és necessari per desar correctament objectes ontològics, que poden tenir diversos valors per cada camp
 class CustomMap extends HashMap<String, Object>{
 	private static final long serialVersionUID = -1812690206134151827L;
 	
+	// si es pretén afegir un valor, comprova si aquest camp ja conté valors, i afegeix el nou valor juntament amb els altres (creant una llista de valors)
 	public String put(String key, String value) {
 		if (key==null) return null;
 		key = key.trim();
@@ -79,6 +90,7 @@ class CustomMap extends HashMap<String, Object>{
 		return value;
 	}
 	
+	// si s'afegeix una llista de valors, es recupera el valor existent per aquest key. Si ja té valors, concatena la nova llista amb els valors anteriors
 	public String[] put(String key, String[] value) {
 		if ("about".equals(key)) return null;
 		if (key==null) return null;
@@ -106,6 +118,7 @@ class CustomMap extends HashMap<String, Object>{
 		return value;
 	}
 	
+	// Crea un customMap a partir d'un Map
 	public CustomMap(Map<String, String> map) {
 		Set<Map.Entry<String, String>> es = map.entrySet();
 		for (Map.Entry<String, String> e : es) {
@@ -172,6 +185,7 @@ public class Migracio {
 	/* Objectes recurrents */
 	static Map<String, String> backupAgents = new HashMap<String, String>();
 	static Map<String, String> realIds = new HashMap<String, String>();
+	static List<String> llistaFitxersPujats = new ArrayList<String>();
 	
 	static boolean DOWNLOAD_DATA = true;
 	static Migrar migrar = Migrar.TOT;
@@ -179,11 +193,16 @@ public class Migracio {
 		
 	static CustomMap errors = new CustomMap();
 	
-	static String hostport = "67.202.24.185:8080";
+	static String hostport = "localhost:8080";
+	
+	static FileWriter fitxersPujats = null;
 	
 	/* Statistics */
 	private static int error_count = 0;
 	
+	/* ------------ funcions útils per a la migració */
+	
+	/* Retorna els ids dels objectes que tenen un camp f amb valor v, i són de la classe c */
 	private static List<String> find(String f, String v, String c) throws Exception {
 		if (v.contains("\n")) v = v.split("\n")[0];
 		String dir = "http://"+hostport+"/ArtsCombinatoriesRest/specific?f="+f+"&v="+URLEncoder.encode(v, "UTF-8")+"&c="+c;
@@ -206,6 +225,7 @@ public class Migracio {
 	    return new Gson().fromJson(sb.toString(), listType);
 	}
 	
+	/* Puja un objecte ontològic */
 	private static String uploadObject(CustomMap data) throws Exception {
 		if (data==null) return null;
 		if (data.get("type")==null) {
@@ -248,6 +268,7 @@ public class Migracio {
 		return null;
 	}
 	
+	/* Crida el servei reset, que esborra TOTES les dades del sistema: media, tripletes i continguts taules sql */
 	private static void reseteja(String time) throws Exception {
 		SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yy kk:mm");
 		String confirm = URLEncoder.encode(sdf.format(Calendar.getInstance().getTime()), "UTF-8");
@@ -267,9 +288,13 @@ public class Migracio {
 	    rd.close();
 	    conn.disconnect();
 	    
+	    File f = new File("fitxerspujats.txt");
+	    if (f.exists()) f.delete();
+	    
 	    if ("error".equals(sb)) throw new Exception("Server Error esborrant-ho tot!");
 	}
 	
+	/* Actualitza un objecte ontològic pel seu id */
 	private static String updateObject(String id, CustomMap data) throws Exception {
 		//log.debug("Migrating data: id=" + id + " " + data);
 		if (data==null) return null;
@@ -309,6 +334,7 @@ public class Migracio {
 		return null;
 	}
 	
+	/* Puja un media */
 	private static String uploadObjectFile(String fileName) throws Exception {
 		if (migrar != Migrar.RES) {
 			try {
@@ -352,6 +378,7 @@ public class Migracio {
 			    }
 			    
 			    String res = sb.toString();
+			    logFitxerMedia(fileName);
 			   // log.debug("SERVER RESPONSE: " +  res);
 			    return res;
 			} catch (OutOfMemoryError e) {
@@ -364,6 +391,7 @@ public class Migracio {
 		return null;
 	}
 	
+	/*  */
 	private static CustomMap getObject(String id) throws Exception {
 		URL url = new URL("http://"+hostport+"/ArtsCombinatoriesRest/resource/"+id);
 		HttpURLConnection conn = (HttpURLConnection)url.openConnection();
@@ -2206,7 +2234,7 @@ public class Migracio {
 				}
 				if (r.get("Valoració Econòmica en €")!=null && !"".equals(r.get("Valoració Econòmica en €"))) {
 					Double d = new Double(r.get("Valoració Econòmica en €").replace(',', '.'));
-					work.put("ac:EstimatedValue", Math.round(Math.abs(d)));
+					work.put("ac:EstimatedValue", Math.round(Math.abs(d))+"");
 				}
 				if (r.get("Edició")!=null && !"".equals(r.get("Edició"))) {
 					String editorUri = null;
@@ -2312,6 +2340,45 @@ public class Migracio {
 		}
 	}
 	
+	private static void loadFitxersMedia() throws Exception {
+		File file = new File("fitxerspujats.txt");
+		if (!file.exists()) {
+			llistaFitxersPujats = new ArrayList<String>();
+			return;
+		}
+	    int ch;
+	    StringBuffer strContent = new StringBuffer("");
+	    FileInputStream fin = null;
+	    try {
+	      fin = new FileInputStream(file);
+	      InputStreamReader in = new InputStreamReader(fin, "UTF-8");
+	      while ((ch = in.read()) != -1)
+	        strContent.append((char) ch);
+	      fin.close();
+	    } catch (Exception e) {
+	      
+	    } finally {
+	    	if (fin!=null) { try { fin.close(); } catch (Exception e) {} }
+	    }
+	    
+	    String s = strContent.toString();
+	    String[] slist = s.split("\\r?\\n");
+	    llistaFitxersPujats = Arrays.asList(slist);
+	}
+	
+	private static void logFitxerMedia(String path) throws Exception {
+		if (fitxersPujats==null) {
+			fitxersPujats = new FileWriter("fitxerspujats.txt");
+		}
+		
+		try {
+			fitxersPujats.append("\r\n"+path);
+		} catch (IOException e) {
+			fitxersPujats = new FileWriter("fitxerspujats.txt");
+			fitxersPujats.append("\r\n"+path);
+		}
+	}
+	
 	
 	private static void migrarMedia() {
 		log.debug(" ======================== MIGRACIO AUDIO/VIDEO ========================== ");
@@ -2326,8 +2393,9 @@ public class Migracio {
 				String[] fileIds = fileId.split(" ");
 				for (String fid : fileIds) {
 					for (String fn : llistaFitxersMedia) {
+						if (llistaFitxersPujats.contains(fn)) continue;
 						if (fn.contains(fid.substring(0, 4)) && fn.contains(fid.substring(12))) {
-							String uri = uploadObjectFile(fn); 
+							String uri = uploadObjectFile(fn);
 							afegirACollection(objectId, fn, uri);
 							break;
 						}
@@ -2338,6 +2406,31 @@ public class Migracio {
 			log.error("",e);
 		}
 	}
+	
+	private static String getImageDim(final String path) throws Exception {
+		String result = null;
+	    String[] parts = path.split("\\.");
+	    String suffix = parts[parts.length-1];
+	    Iterator<ImageReader> iter = ImageIO.getImageReadersBySuffix(suffix);
+	    if (iter.hasNext()) {
+	        ImageReader reader = iter.next();
+	        try {
+	            ImageInputStream stream = new FileImageInputStream(new File(path));
+	            reader.setInput(stream);
+	            int width = reader.getWidth(reader.getMinIndex());
+	            int height = reader.getHeight(reader.getMinIndex());
+	            result = width + "x" + height + "px";
+	        } catch (Exception e) {
+	            throw e;
+	        } finally {
+	            reader.dispose();
+	        }
+	    } else {
+	    	new Exception("No reader found");
+	    }
+	    return result;
+	}
+
 	
 	private static void putImageData(CustomMap image, String fn, String fn2) {
 		if (fn2.startsWith("FF1")) {
@@ -2382,6 +2475,17 @@ public class Migracio {
 				}
 			}
 		}
+
+		try {
+			File f = new File(fn);
+			image.put("ac:FileSize", f.length()+"");
+			ImageInfo info = Sanselan.getImageInfo(f);
+			String resolution = info.getWidth() + "x" + info.getHeight() + "px";
+			image.put("ac:Resolution", resolution);
+		} catch (Exception e) {
+			log.warn("Error obtenint la mida o resolució de la imatge " + fn);
+		}
+
 	}
 	
 	private static void migrarImages() {
@@ -2391,6 +2495,7 @@ public class Migracio {
 		
 		try {
 			for (String fileName : llistaFitxersMedia) {
+				if (llistaFitxersPujats.contains(fileName)) continue;
 				Set<Map.Entry<String, String>> ent = objectExpedient.entrySet();
 				int idx = -1;
 				int idx2 = -1;
@@ -2768,15 +2873,20 @@ public class Migracio {
 			migrarFileMaker1();
 			migrarFileMaker2();
 			migrarFileMaker3();
-			
 		}
 		
 		backupDadesTemporalsMigracio();
 		if (migrar == Migrar.TOT || migrar == Migrar.NOMES_MEDIA) {
+			loadFitxersMedia();
+			
 			// ----- Migració de Media				DONE
 			migrarMedia();
 			migrarImages();
 		}
+		 
+		try {
+			if (fitxersPujats!=null) fitxersPujats.close();
+		} catch (Exception e) {	}
 		
 		log.debug("FINISHED migration at " + sdf.format(new GregorianCalendar().getTime()));
 		// -- utils no migracio
