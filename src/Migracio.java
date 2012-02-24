@@ -59,6 +59,9 @@ import com.hp.hpl.jena.rdf.model.Resource;
 import com.hp.hpl.jena.rdf.model.Statement;
 import com.hp.hpl.jena.rdf.model.StmtIterator;
 
+/* Veure l'apartat de migració de la documentació fatac.github.com */
+/* Veure també els comentaris a main() */
+
 // CustomMap és un HashMap que permet afegir diversos elements per a cada clau
 // això és necessari per desar correctament objectes ontològics, que poden tenir diversos valors per cada camp
 class CustomMap extends HashMap<String, Object>{
@@ -225,7 +228,16 @@ public class Migracio {
 	    return new Gson().fromJson(sb.toString(), listType);
 	}
 	
-	/* Puja un objecte ontològic */
+	/* Puja un objecte ontològic 
+	 * 
+	 * Pujar un objecte ontològic implica que l'objecte "data" passat per paràmetre tingui:
+	 * un camp "about" amb l'identificador de l'objecte
+	 * un camp "type" o "rdf:type" amb la classe de l'objecte.. p.ex: "ac:Person"
+	 * la resta de camps de l'objecte amb els seus valors (p.ex: "ac:Name", "ac:Description", "ac:Year", etc.)
+	 * 
+	 * Cal consultar l'Ontologia per saber quins camps té cada objecte
+	 * 
+	 * */
 	private static String uploadObject(CustomMap data) throws Exception {
 		if (data==null) return null;
 		if (data.get("type")==null) {
@@ -421,6 +433,8 @@ public class Migracio {
 	
 	static Map<String, String> addedCountries = new HashMap<String, String>();
 	
+	
+	/* Migra objectes tipus Person */
 	private static void migrarPersons() {
 		log.debug(" ======================== MIGRACIO PERSONS ========================== ");
 		
@@ -457,12 +471,14 @@ public class Migracio {
 			    // obtenir les seves dades completes...
 			    if (predicate.toString().equals("http://www.fundaciotapies.org/terms/0.1/rdfuri")) {
 			    	try {
+			    		// l'identificador RDF de la persona és el link al recurs
 			    		String url = object.toString();
 				    	URL personUrl = new URL(url);
-				    	//URL personUrl = new URL("http://www.fundaciotapies.org/site/spip.php?page=xml-participant&id_article=4081");
+				    	// URL personUrl = new URL("http://www.fundaciotapies.org/site/spip.php?page=xml-participant&id_article=4081");
 				    	
 				    	BufferedReader in = new BufferedReader(new InputStreamReader(personUrl.openStream()));
 						
+				    	// desem la persona actual a un fitxer local
 						File personFile = new File("currentPerson.rdf");
 						if (personFile.exists()) {
 							personFile.delete();
@@ -479,6 +495,7 @@ public class Migracio {
 						personFileWriter.flush();
 						personFileWriter.close();
 						
+						// 
 						Model model1 = ModelFactory.createDefaultModel();
 						model1.read("file:currentPerson.rdf");
 						
@@ -546,6 +563,7 @@ public class Migracio {
 						}
 						
 						if (contryNotFound != null) {
+							// avisa dels països que no s'han pogut migrar perquè l'usuari ho faci manualment
 							log.debug("No s'ha pogut trobat cap pais de neixement pel nom : " + contryNotFound + ". Persona " + person.get("ac:givenName") + " " + person.get("ac:familyName"));
 						}
 						
@@ -573,6 +591,9 @@ public class Migracio {
 	
 	static Map<String, String> addedCities = new HashMap<String, String>();
 	
+	/*
+	 * Donat un nom de ciutat n'obté el país (en l'idioma passat per paràmetre), utilitzant el servei del geonames
+	 */
 	public static String[] searchCityCountry(String cityName, String lang) {
 		String countryName = null;
 		
@@ -594,6 +615,7 @@ public class Migracio {
 
 		    rd.close();
 		    
+		    // busca els resultats dins del json que retorna el servei
 		    int idx1 = sb.indexOf("\"countryName\": \"") + 16;
 		    if (idx1>15) {
 		    	int idx2 = sb.indexOf("\"", idx1);
@@ -614,8 +636,6 @@ public class Migracio {
 	}
 	
 	
-	
-	/* TODO: CAL una taula completa de ciutats.csv i amb els noms alinieats per idoma perquè aquesta funció sigui fiable */
 	public static List<String> seekAndGenerateLocations(String desc) throws Exception {
 		String[] lang = {"ca", "es", "en"};
 		
@@ -694,6 +714,7 @@ public class Migracio {
 		return res;
 	}
 	
+	// esborra els tags html especificats del text passat per paràmetre
 	private static String clearHtmlObjects(String html, String tag) {
 		int idx = 0;
 		do {
@@ -748,6 +769,7 @@ public class Migracio {
 				    	
 				    	BufferedReader in = new BufferedReader(new InputStreamReader(eventUrl.openStream()));
 						
+				    	// desem l'esdeveniment actual a un arxiu rdf
 						File eventFile = new File("currentEvent.rdf");
 						if (eventFile.exists()) {
 							eventFile.delete();
@@ -763,6 +785,7 @@ public class Migracio {
 						eventFileWriter.flush();
 						eventFileWriter.close();
 						
+						// carrega l'arxiu de l'esdeveniment
 						Model model1 = ModelFactory.createDefaultModel();
 						model1.read("file:currentEvent.rdf");
 						
@@ -784,6 +807,7 @@ public class Migracio {
 						String idExpedient = null;
 						
 						//log.debug("Reading event...");
+						// itera sobre les dades de l'esdeveniment actual
 						while(it2.hasNext()) {
 							Statement stmt1 = it2.next();
 							
@@ -793,6 +817,7 @@ public class Migracio {
 						    
 						    String subjectURI = subject1.toString();
 						    
+						    // 
 						    if (subject1.isURIResource()) {
 						    	String property = predicate1.toString();
 						    	
@@ -1277,6 +1302,8 @@ public class Migracio {
 		}
 	}
 	
+	// Utilitza un servei creat especialment per a la migració, 
+	// que donat un id "fatacId" (que obtenim dels RDFs d'origen) ens retorna l'id real de l'objecte (el camp rdf "about") 
 	public static String getRealId(String c, String fatacId) {
 		try {
 			String res = realIds.get(fatacId);
@@ -1304,6 +1331,7 @@ public class Migracio {
 		}
 	}
 	
+	// Donat un id de rol n'obté el nom de les dades rdf de spip
 	private static String getRoleName(String roleId) {
 		try {
 			if (DOWNLOAD_DATA) {
@@ -1437,6 +1465,7 @@ public class Migracio {
 		//log.debug("Uploaded...");
 	}
 	
+	// migra les relacions entre objectes (és a dir els objectProperty)
 	private static void migrarRelations() {
 		log.debug(" ======================== MIGRACIO RELACIONS ========================== ");
 		
@@ -2407,6 +2436,7 @@ public class Migracio {
 		}
 	}
 	
+	// Funció per obtenir la resolució i mida d'una imatge
 	private static String getImageDim(final String path) throws Exception {
 		String result = null;
 	    String[] parts = path.split("\\.");
@@ -2431,7 +2461,7 @@ public class Migracio {
 	    return result;
 	}
 
-	
+	// Afegeix a l'objecte image passat per paràmetre: l'origen físic, la seva col·lecció, format, la mida i la resolució
 	private static void putImageData(CustomMap image, String fn, String fn2) {
 		if (fn2.startsWith("FF1")) {
 			image.put("ac:OriginalSource", "Paper");
@@ -2463,6 +2493,7 @@ public class Migracio {
 			image.put("ac:OriginalSource", "Digital");
 		}
 		
+		// el format és l'extensió del fitxer
 		image.put("ac:format",fn2.substring(fn2.length()-3).toLowerCase());
 		
 		int idx = fn2.indexOf("C0");
@@ -2600,7 +2631,9 @@ public class Migracio {
 		}
 	}
 		
-	
+	// Noms màster de les colleccions, a la tercera posició s'hi desarà l'identificador 
+	// amb que ha sigut creat l'objecte, necessari per accedir-hi posteriorment
+	// després és la classe de l'objecte i la denominació en anglès i espanyol
 	private static String[][] collectionList = {
 	
 		{"C001", "Inauguracions", null, "ac:Opening", "Opening", "Inauguraciones"},
@@ -2663,6 +2696,7 @@ public class Migracio {
 		return null;
 	}
 	
+	// funció que recopilava agents per llistar-les i normalitzar-les, que posteriorment serveixen per identificar-les durant la migració
 	public static void collectAgents() throws Exception {
 		CsvReader r = new CsvReader(new FileReader(new File("./fm/CF-fitxer-videos.csv")));
 		r.readHeaders();
@@ -2679,6 +2713,7 @@ public class Migracio {
 		}
 	}
 	
+	// funció que recopilava ciutats per llistar-les i normalitzar-les manualment, que posteriorment serveixen per identificar-les durant la migració
 	public static void collectCities() throws Exception {
 		CsvReader r = new CsvReader(new FileReader(new File("./fm/SF-MASER-COLLECIO.csv")));
 		r.readHeaders();
@@ -2702,6 +2737,7 @@ public class Migracio {
 		
 		try {
 		
+			// idiomes en els 3 idiomes (noteu que el codi d'idioma es posa com un prefix seguit de @)
 			String[] languages = {
 					"Catala", "Català@ca", "Catalán@es", "Catalan@en",
 					"Angles", "Anglès@ca", "Inglés@es", "English@en",
@@ -2716,6 +2752,7 @@ public class Migracio {
 					"Serbi", "Serbi@ca", "Serbio@es", "Serbian@en"
 			};
 			
+			// tipus d'obra en els 3 idiomes
 			String[] kindArtWork = {
 					"Dança", "Dança@ca", "Danza@es", "Dance@en",
 					"Installacio", "Instal·lació@ca", "Instalación@es", "Installation@en",
@@ -2745,7 +2782,7 @@ public class Migracio {
 			while(i<languages.length) {
 				CustomMap lang = new CustomMap();
 				lang.put("type", "ac:Language");
-				lang.put("about", languages[i++]);
+				lang.put("about", languages[i++]);	// about conté l'identificador de l'objecte
 				lang.put("ac:Label", languages[i++]);
 				lang.put("ac:Label", languages[i++]);
 				lang.put("ac:Label", languages[i++]);
@@ -2780,6 +2817,10 @@ public class Migracio {
 		
 	}
 	
+	
+	/*
+	 * Migra tipologies documentals a partir d'un csv amb les dades
+	 */
 	private static void migrarTipusDocumental() {
 		log.debug(" ======================== MIGRACIO DOCUMENTARY TYPE ========================== ");
 		
@@ -2819,10 +2860,29 @@ public class Migracio {
 		}
 	}
 
+	
+	
 	public static void main(String[] args) throws Exception {
+		/*
+		 * Explicació de la variable "migrar":
+		 *   - Migrar.TOT = Esborra totes les dades i media del servidor, migra de nou totes les dades i els media que hi ha al path especificat i genera a més els arxius temporals per poder reprendre la migració dels media posteriorment
+		 *   - Migrar.NOMES_MEDIA = Recupera els arxius temporals de migració per poder continuar la migració dels media en el punt on s'hagués quedat
+		 *   - Migrar.NOMES_DADES = Esborra totes les dades i media del servidor, migra només les dades i genera els arxius temporals per poder fer la migració dels media posteriorment. 
+		 *   - Migrar.RES = No fa res...
+		 */
 		migrar = Migrar.TOT;
-		hostport = "localhost:8080";
-		String resetTime = null; // "30/11/11 16:37"
+		
+		// host del servidor rest
+		hostport = "localhost:8080"; 
+		
+		/*
+		 * resetTime s'utilitza per a cridar el servei reset, si el resetTime és null s'utilitza la data i hora actual
+		 */
+		String resetTime = null; // format tipus "30/11/11 16:37"
+		
+		/*
+		 * directori on hi ha els medias a migrar, cal que mantinguin l'estructura d'arxius actual de la fundació (és a dir, tot allò que penja de la carpeta Disc_3_web -- Parlar amb la Núria)
+		 */
 		directori_medias = "/home/jordi.roig.prieto/PROVA_MIGRACIO_MEDIA";
 		
 		SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yy kk:mm");
@@ -2895,6 +2955,8 @@ public class Migracio {
 		//collectCities();
 	}
 
+	/* Desa dades temporals de migració que serveixen per pujar constistentment 
+	 * els medias que s'han de relacionar adequadament amb els objectes ontològics prèviaments pujats */
 	private static void backupDadesTemporalsMigracio() throws Exception {
 		if (migrar == Migrar.NOMES_DADES || migrar == Migrar.TOT) {
 			log.debug(" ======================== BACKUP DADES TEMPORALS ========================== ");
