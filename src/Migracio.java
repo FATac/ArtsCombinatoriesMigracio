@@ -403,7 +403,7 @@ public class Migracio {
 		return null;
 	}
 	
-	/*  */
+	/* obtenir un objecte ontologic a partir del seu id */
 	private static CustomMap getObject(String id) throws Exception {
 		URL url = new URL("http://"+hostport+"/ArtsCombinatoriesRest/resource/"+id);
 		HttpURLConnection conn = (HttpURLConnection)url.openConnection();
@@ -1549,6 +1549,8 @@ public class Migracio {
 		}	 
 	}
 	
+	// Migra objectes Video. Cada grup de files amb el mateix títol correspon a un sol Vídeo. Per tant s'agrupen la resta de camps de cada Vídeo.
+	// Els arxius .mov de vídeo es migren més tard (funció migrarMedia) i es relacionen amb els objectes Video creat en aquesta funció.
 	private static void migrarFileMaker1() {
 		log.debug(" ======================== MIGRACIO FILEMAKER 1 ========================== ");
 		
@@ -1871,7 +1873,10 @@ public class Migracio {
 			log.error("",e);
 		}
 	}
-	
+
+
+	// Migra objectes Audio. Cada grup de files amb el mateix títol correspon a un sol Audio. Per tant s'agrupen la resta de camps de cada Audio.
+	// Els arxius .aif d'àudio es migren més tard (funció migrarMedia) i es relacionen amb els objectes Audio creat en aquesta funció.
 	private static void migrarFileMaker2() {
 		log.debug(" ======================== MIGRACIO FILEMAKER 2 ========================== ");
 		
@@ -2150,9 +2155,11 @@ public class Migracio {
 			
 			while (r.readRecord()) {
 				if (r.get("Títol")!=null && !"".equals(r.get("Títol"))) {
-					currentWork = r.get("Títol").trim();
-					if (!currentWork.equals(lastWork)) {
+					currentWork = r.get("Títol").trim() + r.get("Any").trim();
+					
+					if (!currentWork.equals(lastWork)) { // Fem la comparacio per titol i any
 						if (lastWork!=null) {
+							lastWork = lastWork.substring(0, lastWork.length()-4); // Treiem l'any enganxat al final
 							work.put("ac:Title", lastWork+"@ca");
 							work.put("about", lastWork);
 							if (!isPublication)
@@ -2318,8 +2325,9 @@ public class Migracio {
 			}
 			
 			if (lastWork!=null) {
-				work.put("ac:Title", currentWork+"@ca");
-				work.put("about", currentWork);
+				lastWork = lastWork.substring(0, lastWork.length()-4); // Treiem l'any enganxat al final
+				work.put("ac:Title", lastWork+"@ca");
+				work.put("about", lastWork);
 				work.put("type", "ac:AT_Work_FAT_Collection");
 				
 				String wri = uploadObject(work);
@@ -2342,13 +2350,17 @@ public class Migracio {
 	}
 	
 	private static List<String> getMediaList(String path) {
-		File f = new File(path); 
-		
 		List<String> l = new ArrayList<String>();
+		if (path.contains("/.") || path.startsWith(".")) return l; // NO incloure els directoris ocults
+		
+		File f = new File(path);
 		String[] subfiles = f.list();
 		
 		if (subfiles!=null) {
-			for (String s : subfiles) l.addAll(getMediaList(path+"/"+s));
+			for (String s : subfiles) {
+				if (s.contains("/.") || s.startsWith(".")) continue; // NO incloure els fitxers ocults
+				l.addAll(getMediaList(path+"/"+s));
+			}
 		} else {
 			l.add(path);
 		}
@@ -2362,7 +2374,14 @@ public class Migracio {
 			if (c[0].equals(codiCol)) {
 				CustomMap media = getObject(objectId);
 				media.put("ac:isCollectedIn", c[2]);
-				media.put("ac:Uri", uri);
+				if (uri.endsWith(".aif")) {
+					media.put("ac:Uri", uri.substring(0, uri.length()-4) + "___4.oga");
+				} else if (uri.endsWith(".mov")) {
+					media.put("ac:Uri", uri.substring(0, uri.length()-4) + "___1.ogv");
+					media.put("ac:Uri", uri.substring(0, uri.length()-4) + "___2.ogv");
+					media.put("ac:Uri", uri.substring(0, uri.length()-4) + "___3.ogv");
+				}
+				
 				updateObject(objectId, media);
 				break;
 			}
@@ -2397,7 +2416,7 @@ public class Migracio {
 	
 	private static void logFitxerMedia(String path) throws Exception {
 		if (fitxersPujats==null) {
-			fitxersPujats = new FileWriter("fitxerspujats.txt");
+			fitxersPujats = new FileWriter("fitxerspujats.txt", true);
 		}
 		
 		try {
@@ -2525,18 +2544,26 @@ public class Migracio {
 		List<String> llistaFitxersMedia = getMediaList(directori_medias);
 		
 		try {
+			// per cada fitxer que penja del path de medias
 			for (String fileName : llistaFitxersMedia) {
 				if (llistaFitxersPujats.contains(fileName)) continue;
 				Set<Map.Entry<String, String>> ent = objectExpedient.entrySet();
 				int idx = -1;
 				int idx2 = -1;
 				
+				// mirem si es pot associar a algun expedient d'Event
 				for (Map.Entry<String, String> e : ent) {
 					String uriExp = e.getKey();
 					String codiExp = e.getValue();
 					
 					idx = fileName.indexOf("/"+codiExp+"_FF");
 					idx2 = fileName.indexOf("/"+codiExp+"_");
+					if (!fileName.endsWith(".tif") 
+							&& !fileName.endsWith(".jpg") 
+							&& !fileName.endsWith(".TIF") 
+							&& !fileName.endsWith(".JPG") 
+							&& !fileName.endsWith(".png")  
+							&& !fileName.endsWith(".PNG")) idx = -1;
 					if (idx!=-1) {
 						CustomMap image = new CustomMap();
 						image.put("type", "ac:Image");
@@ -2558,7 +2585,7 @@ public class Migracio {
 						CustomMap media = new CustomMap();
 						String fn2 = fileName.substring(idx2);
 						
-						if (fileName.endsWith(".tif") || fileName.endsWith(".jpg")) {
+						if (fileName.endsWith(".tif") || fileName.endsWith(".jpg") || fileName.endsWith(".TIF") || fileName.endsWith(".JPG")) {
 							media.put("type", "ac:Image");
 							putImageData(media, fileName, fn2);
 						} else if (fileName.endsWith(".pdf") || fileName.endsWith(".doc") || fileName.endsWith(".rtf") || fileName.endsWith(".odt")) {
@@ -2578,6 +2605,7 @@ public class Migracio {
 					}
 				}
 				
+				// Si no, mirem si es pot associar a un expedient d'obra
 				if ((idx == -1) && (idx2 == -1)) {
 					Set<Map.Entry<String, Object>> ent2 = imagesExpedient.entrySet();
 					for (Map.Entry<String, Object> e : ent2) {
@@ -2602,7 +2630,7 @@ public class Migracio {
 								if (idx!=-1 && !"".equals(c.trim())) {
 									CustomMap media = new CustomMap();
 									
-									if (fileName.endsWith(".tif") || fileName.endsWith(".jpg")) {
+									if (fileName.endsWith(".tif") || fileName.endsWith(".jpg") || fileName.endsWith(".TIF") || fileName.endsWith(".JPG")) {
 										media.put("type", "ac:Image");
 									} else if (fileName.endsWith(".pdf") || fileName.endsWith(".doc") || fileName.endsWith(".rtf") || fileName.endsWith(".odt")) {
 										media.put("type", "ac:Text");
@@ -2625,6 +2653,8 @@ public class Migracio {
 						}
 					}
 				}
+				
+				// Si no podem associar el media amb cap expedient, senzillament no el pugem
 			}
 		} catch (Exception e) {
 			log.error("",e);
@@ -2870,10 +2900,10 @@ public class Migracio {
 		 *   - Migrar.NOMES_DADES = Esborra totes les dades i media del servidor, migra només les dades i genera els arxius temporals per poder fer la migració dels media posteriorment. 
 		 *   - Migrar.RES = No fa res...
 		 */
-		migrar = Migrar.TOT;
+		migrar = Migrar.NOMES_MEDIA;
 		
 		// host del servidor rest
-		hostport = "localhost:8080"; 
+		hostport = "senyalets.upc.edu:8080"; 
 		
 		/*
 		 * resetTime s'utilitza per a cridar el servei reset, si el resetTime és null s'utilitza la data i hora actual
@@ -2883,7 +2913,7 @@ public class Migracio {
 		/*
 		 * directori on hi ha els medias a migrar, cal que mantinguin l'estructura d'arxius actual de la fundació (és a dir, tot allò que penja de la carpeta Disc_3_web -- Parlar amb la Núria)
 		 */
-		directori_medias = "/home/jordi.roig.prieto/PROVA_MIGRACIO_MEDIA";
+		directori_medias = "/media/VIDEOS-WEB";
 		
 		SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yy kk:mm");
 		String ara = sdf.format(new Date()); 
