@@ -2550,6 +2550,7 @@ public class Migracio {
 				Set<Map.Entry<String, String>> ent = objectExpedient.entrySet();
 				int idx = -1;
 				int idx2 = -1;
+				boolean loaded = false;
 				
 				// mirem si es pot associar a algun expedient d'Event
 				for (Map.Entry<String, String> e : ent) {
@@ -2603,6 +2604,8 @@ public class Migracio {
 						
 						break;
 					}
+					
+					loaded = true;
 				}
 				
 				// Si no, mirem si es pot associar a un expedient d'obra
@@ -2640,6 +2643,8 @@ public class Migracio {
 									
 									String fileuri = uploadObjectFile(fileName);
 									
+									loaded = true;
+									
 									String workUri = workExpedient.get(uriExp);
 									if (workUri!=null) media.put("ac:represents", workUri);
 									media.put("ac:Uri", fileuri);
@@ -2655,6 +2660,7 @@ public class Migracio {
 				}
 				
 				// Si no podem associar el media amb cap expedient, senzillament no el pugem
+				log.warn("No s'ha pujat el fitxer " + fileName + " perquè no es pot associar amb cap expedient. Cal pujar-lo MANUALMENT");
 			}
 		} catch (Exception e) {
 			log.error("",e);
