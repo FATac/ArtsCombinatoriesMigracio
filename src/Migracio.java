@@ -2580,7 +2580,7 @@ public class Migracio {
 						CustomMap exp = getObject(uriExp);
 						exp.put("ac:hasMedia", imageuri);
 						updateObject(uriExp, exp);
-						
+						loaded = true;
 						break;
 					} else if (idx2!=-1) {
 						CustomMap media = new CustomMap();
@@ -2601,11 +2601,9 @@ public class Migracio {
 						CustomMap exp = getObject(uriExp);
 						exp.put("ac:hasMedia", imageuri);
 						updateObject(uriExp, exp);
-						
+						loaded = true;
 						break;
-					}
-					
-					loaded = true;
+					}					
 				}
 				
 				// Si no, mirem si es pot associar a un expedient d'obra
@@ -2643,8 +2641,6 @@ public class Migracio {
 									
 									String fileuri = uploadObjectFile(fileName);
 									
-									loaded = true;
-									
 									String workUri = workExpedient.get(uriExp);
 									if (workUri!=null) media.put("ac:represents", workUri);
 									media.put("ac:Uri", fileuri);
@@ -2653,6 +2649,7 @@ public class Migracio {
 									CustomMap exp = getObject(uriExp);
 									exp.put("ac:hasMedia", imageuri);
 									updateObject(uriExp, exp);
+									loaded = true;
 								}
 							}
 						}
@@ -2660,7 +2657,8 @@ public class Migracio {
 				}
 				
 				// Si no podem associar el media amb cap expedient, senzillament no el pugem
-				log.warn("No s'ha pujat el fitxer " + fileName + " perquè no es pot associar amb cap expedient. Cal pujar-lo MANUALMENT");
+				if (!loaded) log.warn("No s'ha pogut pujar l'arxiu " + fileName + " perquè no es pot relacionar amb cap expedient o obra. Caldrà pujar-lo i establir les relacions MANUALMENT");
+
 			}
 		} catch (Exception e) {
 			log.error("",e);
