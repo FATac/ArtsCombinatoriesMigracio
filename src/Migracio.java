@@ -350,27 +350,30 @@ public class Migracio {
 	private static String uploadObjectFile(String fileName) throws Exception {
 		if (migrar != Migrar.RES) {
 			try {
-				String[] parts = fileName.split("\\/");
+				// Original code uploads the file via http
+				// new version expects files is inside de server
+				/*String[] parts = fileName.split("\\/");
 				String fileNameOnly = parts[parts.length-1];
-				URL url = new URL("http://"+hostport+"/ArtsCombinatoriesRest/media/upload?fn=" + URLEncoder.encode(fileNameOnly,"UTF-8"));
+				URL url = new URL("http://"+hostport+"/ArtsCombinatoriesRest/media/upload?fn=" + URLEncoder.encode(fileNameOnly,"UTF-8"));*/
+				URL url = new URL("http://"+hostport+"/ArtsCombinatoriesRest/media/upload?fn=" + URLEncoder.encode(fileName,"UTF-8"));
 				
 				HttpURLConnection conn = (HttpURLConnection)url.openConnection();
 				conn.setRequestProperty("Content-Type", "application/json");
 			    conn.setRequestMethod("POST");
 			    conn.setDoOutput(true);
-			    File file = new File(fileName);
-			    FileInputStream fin = new FileInputStream(file);
-			    conn.setFixedLengthStreamingMode((int)file.length());
+//			    File file = new File(fileName);
+//			    FileInputStream fin = new FileInputStream(file);
+			    //conn.setFixedLengthStreamingMode((int)file.length());
 			    
 			    DataOutputStream wr = new DataOutputStream(conn.getOutputStream());
 			    
-			    byte[] input = new byte[1024*4];
+			    /*byte[] input = new byte[1024*4];
 				int b = 0;
 				
 				while ((b = fin.read(input)) > 0) {
 					wr.write(input, 0, b);
 					wr.flush();
-				}
+				}*/
 			    wr.close();
 			    
 			    // Get the response
@@ -386,7 +389,7 @@ public class Migracio {
 			    
 			    if (sb.toString().equals("error")) {
 			    	error_count++;
-			    	throw new Exception("Error uploading file");
+			    	throw new Exception("Error uploading file: " + fileName);
 			    }
 			    
 			    String res = sb.toString();
@@ -2368,18 +2371,21 @@ public class Migracio {
 	}
 	
 	private static void afegirACollection(String objectId, String codi, String uri) throws Exception {
+		String codiCol, dest;
 		int idx = codi.indexOf("C0");
-		String codiCol = codi.substring(idx,idx+4);
+		codiCol = codi.substring(idx,idx+4);
 		for (String[] c : collectionList) {
 			if (c[0].equals(codiCol)) {
 				CustomMap media = getObject(objectId);
 				media.put("ac:isCollectedIn", c[2]);
+				dest = uri.substring(0, uri.length()-4);
 				if (uri.endsWith(".aif")) {
-					media.put("ac:Uri", uri.substring(0, uri.length()-4) + "___4.oga");
+					media.put("ac:Uri", dest.replace("/aif/", "/oga/") + "___4.oga");
 				} else if (uri.endsWith(".mov")) {
-					media.put("ac:Uri", uri.substring(0, uri.length()-4) + "___1.ogv");
-					media.put("ac:Uri", uri.substring(0, uri.length()-4) + "___2.ogv");
-					media.put("ac:Uri", uri.substring(0, uri.length()-4) + "___3.ogv");
+					dest = dest.replace("/mov/", "/ogv/");
+					media.put("ac:Uri", dest + "___1.ogv");
+					media.put("ac:Uri", dest + "___2.ogv");
+					media.put("ac:Uri", dest + "___3.ogv");
 				}
 				
 				updateObject(objectId, media);
@@ -2434,21 +2440,30 @@ public class Migracio {
 		List<String> llistaFitxersMedia = getMediaList(directori_medias);
 		
 		try {
-			for (String[] dup : mediaFileId) {
-				String fileId = dup[0];
-				String objectId = dup[1];
+			for (String fn : llistaFitxersMedia) {
+				boolean loaded = false;
+				if (llistaFitxersPujats.contains(fn)) continue;
 				
-				String[] fileIds = fileId.split(" ");
-				for (String fid : fileIds) {
-					for (String fn : llistaFitxersMedia) {
-						if (llistaFitxersPujats.contains(fn)) continue;
+				for (String[] dup : mediaFileId) {
+					String fileId = dup[0];
+					String objectId = dup[1];
+					
+					String[] fileIds = fileId.split(" ");
+					for (String fid : fileIds) {
 						if (fn.contains(fid.substring(0, 4)) && fn.contains(fid.substring(12))) {
 							String uri = uploadObjectFile(fn);
 							afegirACollection(objectId, fn, uri);
+							loaded = true;
 							break;
 						}
 					}
+					
+					if (loaded) break;
 				}
+				
+				if (!loaded && (fn.endsWith(".mov") || fn.endsWith(".aif") || fn.endsWith(".MOV") || fn.endsWith(".AIF"))) {
+					log.warn("No s'ha pogut pujar l'arxiu " + fn + " perquè no es pot relacionar amb cap expedient o obra. Caldrà pujar-lo i establir les relacions MANUALMENT");
+				}		
 			}
 		} catch (Exception e) {
 			log.error("",e);
@@ -2657,7 +2672,8 @@ public class Migracio {
 				}
 				
 				// Si no podem associar el media amb cap expedient, senzillament no el pugem
-				if (!loaded) log.warn("No s'ha pogut pujar l'arxiu " + fileName + " perquè no es pot relacionar amb cap expedient o obra. Caldrà pujar-lo i establir les relacions MANUALMENT");
+				if (!loaded && !fileName.endsWith(".mov") && !fileName.endsWith(".aif") && !fileName.endsWith(".MOV") && !fileName.endsWith(".AIF")) 
+						log.warn("No s'ha pogut pujar l'arxiu " + fileName + " perquè no es pot relacionar amb cap expedient o obra. Caldrà pujar-lo i establir les relacions MANUALMENT");
 
 			}
 		} catch (Exception e) {
@@ -2904,7 +2920,7 @@ public class Migracio {
 		 *   - Migrar.NOMES_DADES = Esborra totes les dades i media del servidor, migra només les dades i genera els arxius temporals per poder fer la migració dels media posteriorment. 
 		 *   - Migrar.RES = No fa res...
 		 */
-		migrar = Migrar.NOMES_MEDIA;
+		migrar = Migrar.NOMES_DADES;
 		
 		// host del servidor rest
 		hostport = "senyalets.upc.edu:8080"; 
